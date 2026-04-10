@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>본부 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── 정당 색 ───────────────────────────────────── */
+    body.party-minjoo { --party-primary: #004EA2; --party-light: #1d4ed8; }
+    body.party-people { --party-primary: #C9151E; --party-light: #dc2626; }
+
+    /* ── 헤더 ─────────────────────────────────────── */
+    .dash-header {
+      background: var(--party-primary, #1e293b);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-title { font-size: 20px; font-weight: 700; color: #fff; }
+    .header-party { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 2px; }
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.15); border-radius: 20px;
+      padding: 5px 13px; font-size: 12px; color: #fff; font-weight: 600;
+    }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #4ade80;
+      animation: blink 1.3s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .refresh-btn {
+      padding: 7px 16px; border-radius: 8px;
+      background: rgba(255,255,255,0.15); color: #fff;
+      border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .refresh-btn:hover { background: rgba(255,255,255,0.28); }
+
+    /* ── 요약 바 ──────────────────────────────────── */
+    .summary-bar {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    .sum-item { padding: 0 28px; text-align: center; }
+    .sum-item:first-child { padding-left: 0; }
+    .sum-val { font-size: 24px; font-weight: 700; color: #fff; }
+    .sum-val.green { color: #4ade80; }
+    .sum-val.red   { color: #f87171; }
+    .sum-lbl { font-size: 11px; color: #64748b; margin-top: 3px; }
+    .sum-divider { width: 1px; background: #334155; height: 40px; flex-shrink: 0; }
+    .sum-time { margin-left: auto; font-size: 12px; color: #475569; }
+
+    /* ── 단위 그리드 ───────────────────────────────── */
+    .unit-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 14px;
+    }
+    .unit-grid.cols-1 { grid-template-columns: 1fr; }
+    .unit-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+
+    /* ── 단위 카드 ─────────────────────────────────── */
+    .unit-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .unit-card-header {
+      padding: 12px 18px;
+      background: #273548;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #334155;
+    }
+    .unit-name { font-size: 17px; font-weight: 700; color: #fff; }
+    .unit-meta { text-align: right; }
+    .unit-total { font-size: 20px; font-weight: 700; color: #fff; }
+    .unit-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+    /* ── 차트 ─────────────────────────────────────── */
+    .unit-chart-wrap {
+      padding: 12px 16px 8px;
+      border-bottom: 1px solid #334155;
+    }
+
+    /* ── 동 테이블 ─────────────────────────────────── */
+    .dong-table { width: 100%; border-collapse: collapse; }
+    .dong-table th {
+      font-size: 11px; color: #64748b; font-weight: 600;
+      padding: 8px 18px; text-align: left;
+      background: #0f172a; border-bottom: 1px solid #334155;
+    }
+    .dong-table td {
+      padding: 7px 18px; font-size: 13px; color: #cbd5e1;
+      border-bottom: 1px solid #1e293b;
+    }
+    .dong-table tr:last-child td { border-bottom: none; }
+    .dong-table .votes { font-weight: 700; color: #fff; }
+    .dong-table .time  { color: #64748b; font-size: 12px; }
+    .dong-table tr.unreported td { color: #64748b; }
+    .dong-table tr.unreported .dong-name::before {
+      content: '● ';
+      color: #ef4444;
+      font-size: 8px;
+    }
+    .dong-table tr.unreported .votes { color: #ef4444; font-weight: 400; }
+
+    /* ── 탭 ──────────────────────────────────────── */
+    .tab-bar {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      padding: 0 28px;
+      gap: 4px;
+    }
+    .tab-btn {
+      padding: 11px 20px;
+      font-size: 13px; font-weight: 600;
+      color: #64748b; background: none; border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .tab-btn:hover { color: #cbd5e1; }
+    .tab-btn.active {
+      color: #fff;
+      border-bottom-color: var(--party-primary, #3b82f6);
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── 담당자 통계 ───────────────────────────────── */
+    .reporter-wrap { padding: 14px; }
+    .sort-bar { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+    .sort-lbl { color:#94a3b8; font-size:13px; }
+    .sort-btn {
+      padding: 5px 14px; border-radius:6px; font-size:12px; font-weight:600;
+      border: 1px solid #334155; background:#1e293b; color:#94a3b8; cursor:pointer;
+    }
+    .sort-btn.active { background: var(--party-primary,#3b82f6); color:#fff; border-color:transparent; }
+    .chart-card {
+      background:#1e293b; border:1px solid #334155;
+      border-radius:12px; padding:16px; margin-bottom:12px;
+    }
+    .reporter-table { width: 100%; border-collapse: collapse;
+      background: #1e293b; border-radius: 12px; overflow: hidden;
+      border: 1px solid #334155; }
+    .reporter-table th {
+      font-size: 11px; color: #64748b; font-weight: 600;
+      padding: 10px 18px; text-align: left;
+      background: #0f172a; border-bottom: 1px solid #334155;
+    }
+    .reporter-table td {
+      padding: 10px 18px; font-size: 13px; color: #cbd5e1;
+      border-bottom: 1px solid #1a2744; vertical-align: middle;
+    }
+    .reporter-table tr:last-child td { border-bottom: none; }
+    .reporter-table tr:hover td { background: #243047; }
+    .reporter-table .r-name  { font-weight: 700; color: #fff; }
+    .reporter-table .r-votes { font-weight: 700; color: #4ade80; font-size: 15px; }
+    .reporter-table .r-time  { color: #64748b; font-size: 12px; }
+    .reporter-table .r-cnt   { color: #94a3b8; }
+    .unit-badge {
+      display: inline-block;
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 700;
+      background: #273548; color: #93c5fd;
+      margin-right: 4px;
+    }
+    .call-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 6px;
+      background: #1d4ed8; color: #fff;
+      border: none; cursor: pointer; font-size: 12px; font-weight: 600;
+      transition: background 0.15s;
+    }
+    .call-btn:hover { background: #2563eb; }
+
+    /* ── 전화 모달 ─────────────────────────────────── */
+    .modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-bg.open { display: flex; }
+    .modal-box {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 16px; padding: 32px 40px;
+      text-align: center; min-width: 280px;
+    }
+    .modal-name { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 12px; }
+    .modal-phone {
+      font-size: 28px; font-weight: 700; color: #4ade80;
+      letter-spacing: 2px; margin-bottom: 24px;
+    }
+    .modal-close {
+      padding: 8px 24px; border-radius: 8px;
+      background: #334155; color: #cbd5e1;
+      border: none; cursor: pointer; font-size: 14px;
+    }
+    .modal-close:hover { background: #475569; }
+    .dong-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .dong-tag {
+      padding: 2px 7px; border-radius: 4px;
+      background: #334155; color: #cbd5e1; font-size: 11px;
+    }
+
+    /* ── 로딩 ─────────────────────────────────────── */
+    .loading {
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh; gap: 12px; color: #94a3b8; font-size: 15px;
+    }
+    .spinner {
+      width: 24px; height: 24px; border: 3px solid #334155;
+      border-top-color: #60a5fa; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── 토스트 ───────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: #1e293b; color: #e2e8f0;
+      padding: 12px 20px; border-radius: 10px;
+      font-size: 14px; font-weight: 600;
+      border: 1px solid #334155;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      opacity: 0; transform: translateY(8px);
+      transition: all 0.25s; z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  <span>대시보드를 불러오는 중...</span>
+</div>
+
+<div id="error-screen" style="display:none; padding:60px; text-align:center;">
+  <p style="font-size:40px">⚠️</p>
+  <p id="error-msg" style="margin-top:16px; color:#ef4444; font-size:16px; font-weight:600;"></p>
+</div>
+
+<div id="main" style="display:none;">
+
+  <!-- 헤더 -->
+  <header class="dash-header">
+    <div class="header-left">
+      <div>
+        <div class="header-title" id="header-district"></div>
+        <div class="header-party"  id="header-party"></div>
+      </div>
+      <div class="live-badge">
+        <span class="live-dot"></span> 실시간 연결
+      </div>
+    </div>
+    <button class="refresh-btn" onclick="refreshDashboard()">🔄 새로고침</button>
+  </header>
+
+  <!-- 요약 바 -->
+  <div class="summary-bar">
+    <div class="sum-item">
+      <div class="sum-val" id="sum-total">-</div>
+      <div class="sum-lbl">총 투표수</div>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-item">
+      <div class="sum-val green" id="sum-rate">-</div>
+      <div class="sum-lbl">목표 달성률</div>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-item">
+      <div class="sum-val" id="sum-reported">-</div>
+      <div class="sum-lbl">보고 완료</div>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-item">
+      <div class="sum-val red" id="sum-unreported">-</div>
+      <div class="sum-lbl">미보고</div>
+    </div>
+    <div class="sum-time" id="last-update"></div>
+  </div>
+
+  <!-- 전체 마감 배너 -->
+  <div id="all-closed-banner" style="display:none;
+    background:#16a34a; color:#fff; text-align:center;
+    padding:16px; font-size:18px; font-weight:700; letter-spacing:1px;">
+    🏁 전체 개표 마감 완료
+  </div>
+
+  <!-- 탭 -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('realtime')">실시간 현황</button>
+    <button class="tab-btn"        onclick="switchTab('reporter')">담당자별 통계</button>
+  </div>
+
+  <!-- 탭 1: 실시간 현황 -->
+  <div class="tab-pane active" id="pane-realtime">
+    <div class="unit-grid" id="unit-grid"></div>
+  </div>
+
+  <!-- 전화 모달 -->
+  <div class="modal-bg" id="call-modal" onclick="closeCallModal()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-name" id="modal-name"></div>
+      <div class="modal-phone" id="modal-phone"></div>
+      <button class="modal-close" onclick="closeCallModal()">닫기</button>
+    </div>
+  </div>
+
+  <!-- 탭 2: 담당자별 통계 -->
+  <div class="tab-pane" id="pane-reporter">
+    <div class="reporter-wrap">
+      <!-- 정렬 선택 -->
+      <div class="sort-bar">
+        <span class="sort-lbl">정렬:</span>
+        <button class="sort-btn active" id="sort-desc" onclick="setReporterSort('desc')">높은순 ↓</button>
+        <button class="sort-btn"        id="sort-asc"  onclick="setReporterSort('asc')">낮은순 ↑</button>
+      </div>
+      <!-- 테이블 (가로 막대 행 안에 포함) -->
+      <table class="reporter-table">
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>단위</th>
+            <th>담당 동</th>
+            <th>최신 투표수</th>
+            <th>제출 횟수</th>
+            <th>마지막 보고</th>
+            <th>전화</th>
+          </tr>
+        </thead>
+        <tbody id="reporter-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/address.js"></script>
+<script>
+  let camp            = null
+  let dongsByUnit     = null
+  let allDongs        = []
+  let charts          = {}
+  let realtimeCh      = null
+  let closingsCh      = null
+  let closingsMap     = {}
+  let reporterCache   = []
+  let reporterSort    = 'desc'
+
+  // ── 초기화 ──────────────────────────────────────────
+  async function init() {
+    const slug = getParam('slug')
+    if (!slug) return showError('캠프 주소가 올바르지 않습니다.')
+
+    try {
+      const { data, error } = await db.from('camps').select('*').eq('slug', slug).single()
+      if (error || !data) return showError('캠프를 찾을 수 없습니다.')
+
+      camp = data
+      document.body.classList.add(`party-${camp.party}`)
+      document.title = `${camp.district} ${camp.party_name} 대시보드`
+      document.getElementById('header-district').textContent =
+        `${camp.sido} ${camp.district} ${camp.party_name}`
+      document.getElementById('header-party').textContent =
+        `본부 실시간 대시보드`
+
+      dongsByUnit = await getDongsByUnit(camp.sigungu)
+      allDongs    = await loadDongs(camp.sigungu)
+
+      buildUnitCards()
+      await refreshDashboard()
+      if (camp.election_type === '본선') {
+        await loadClosings()
+        subscribeClosings()
+      }
+      subscribeRealtime()
+
+      document.getElementById('loading').style.display = 'none'
+      document.getElementById('main').style.display    = 'block'
+
+    } catch (e) {
+      showError('오류: ' + e.message)
+    }
+  }
+
+  // ── 단위 카드 구조 생성 ──────────────────────────────
+  function buildUnitCards() {
+    const grid = document.getElementById('unit-grid')
+    grid.innerHTML = ''
+
+    if (dongsByUnit) {
+      const units = Object.keys(dongsByUnit)
+      if (units.length === 2) grid.classList.add('cols-2')
+      else if (units.length === 1) grid.classList.add('cols-1')
+      units.forEach(unit => grid.appendChild(makeUnitCard(unit, dongsByUnit[unit])))
+    } else {
+      grid.classList.add('cols-1')
+      grid.appendChild(makeUnitCard(null, allDongs))
+    }
+  }
+
+  function makeUnitCard(unit, dongs) {
+    const key   = unit || 'all'
+    const label = unit ? `${camp.sigungu}${unit}` : camp.sigungu
+    const div   = document.createElement('div')
+    div.className = 'unit-card'
+    div.innerHTML = `
+      <div class="unit-card-header">
+        <div class="unit-name">${label}</div>
+        <div class="unit-meta">
+          <div class="unit-total" id="unit-total-${key}">- 표</div>
+          <div class="unit-sub"  id="unit-sub-${key}">${dongs.length}개 동</div>
+        </div>
+      </div>
+      <div class="unit-chart-wrap">
+        <canvas id="chart-${key}" height="130"></canvas>
+      </div>
+      <table class="dong-table">
+        <thead>
+          <tr>
+            <th>동명</th>
+            <th>투표수</th>
+            <th>책임자</th>
+            <th>보고 시각</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-${key}"></tbody>
+      </table>
+    `
+    return div
+  }
+
+  // ── 대시보드 갱신 ────────────────────────────────────
+  async function refreshDashboard() {
+    const { data } = await db
+      .from('submissions')
+      .select('dong, reporter_name, reporter_phone, vote_count, submitted_at')
+      .eq('camp_id', camp.id)
+      .order('submitted_at', { ascending: false })
+
+    if (!data) return
+
+    // 담당자+동 기준 최신값 추출
+    const byReporterDong = {}
+    data.forEach(row => {
+      const key = `${row.reporter_phone}__${row.dong}`
+      if (!byReporterDong[key]) byReporterDong[key] = row
+    })
+
+    // 동별로 모든 담당자의 최신값 합산
+    const latest = {}
+    Object.values(byReporterDong).forEach(row => {
+      if (!latest[row.dong]) {
+        latest[row.dong] = { ...row, vote_count: 0 }
+      }
+      latest[row.dong].vote_count += row.vote_count
+      // 마지막 제출자 이름·시간 갱신
+      if (row.submitted_at > (latest[row.dong]._latestTime || '')) {
+        latest[row.dong].submitted_at = row.submitted_at
+        latest[row.dong].reporter_name = row.reporter_name
+        latest[row.dong]._latestTime   = row.submitted_at
+      }
+    })
+
+    renderSummary(latest)
+
+    if (dongsByUnit) {
+      Object.entries(dongsByUnit).forEach(([unit, dongs]) => {
+        renderUnitChart(unit, dongs, latest)
+        renderUnitTable(unit, dongs, latest)
+        renderUnitHeader(unit, dongs, latest)
+      })
+    } else {
+      renderUnitChart('all', allDongs, latest)
+      renderUnitTable('all', allDongs, latest)
+      renderUnitHeader('all', allDongs, latest)
+    }
+
+    document.getElementById('last-update').textContent =
+      '마지막 갱신: ' + new Date().toLocaleTimeString('ko-KR')
+  }
+
+  // ── 전체 요약 ────────────────────────────────────────
+  function renderSummary(latest) {
+    const rows     = Object.values(latest)
+    const total    = rows.reduce((s, r) => s + r.vote_count, 0)
+    const reported = rows.length
+    const unreport = Math.max(0, allDongs.length - reported)
+    const rate     = camp.target_votes > 0
+      ? Math.round(total / camp.target_votes * 100) + '%' : '-'
+
+    document.getElementById('sum-total').textContent    = formatNumber(total)
+    document.getElementById('sum-rate').textContent     = rate
+    document.getElementById('sum-reported').textContent = `${reported} / ${allDongs.length} 동`
+    document.getElementById('sum-unreported').textContent = unreport + ' 동'
+  }
+
+  // ── 단위 카드 헤더 소계 ──────────────────────────────
+  function renderUnitHeader(unit, dongs, latest) {
+    const key      = unit || 'all'
+    const total    = dongs.reduce((s, d) => s + (latest[d]?.vote_count || 0), 0)
+    const reported = dongs.filter(d => latest[d]).length
+    document.getElementById(`unit-total-${key}`).textContent = formatNumber(total) + ' 표'
+    document.getElementById(`unit-sub-${key}`).textContent   =
+      `${reported} / ${dongs.length}개 동 보고`
+  }
+
+  // ── 단위 차트 ────────────────────────────────────────
+  function renderUnitChart(unit, dongs, latest) {
+    const key    = unit || 'all'
+    const votes  = dongs.map(d => latest[d]?.vote_count || 0)
+    const perDongTarget = camp.target_votes > 0
+      ? camp.target_votes / (allDongs.length || 1) : 0
+
+    const colors = votes.map(v =>
+      v === 0                       ? '#ef4444' :
+      perDongTarget && v >= perDongTarget * 0.8 ? '#10b981' :
+                                      '#3b82f6'
+    )
+
+    const ctx = document.getElementById(`chart-${key}`).getContext('2d')
+    if (charts[key]) charts[key].destroy()
+
+    charts[key] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: dongs,
+        datasets: [{ data: votes, backgroundColor: colors, borderRadius: 4 }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            ticks: { color: '#94a3b8', font: { size: 10 } },
+            grid:  { color: '#334155' }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#94a3b8', font: { size: 10 } },
+            grid:  { color: '#334155' }
+          }
+        }
+      }
+    })
+  }
+
+  // ── 단위 테이블 ──────────────────────────────────────
+  function renderUnitTable(unit, dongs, latest) {
+    const key   = unit || 'all'
+    const tbody = document.getElementById(`tbody-${key}`)
+    tbody.innerHTML = ''
+
+    // 보고된 동을 투표수 내림차순, 미보고는 하단
+    const reported   = dongs.filter(d =>  latest[d]).sort((a, b) =>
+      latest[b].vote_count - latest[a].vote_count)
+    const unreported = dongs.filter(d => !latest[d])
+
+    ;[...reported, ...unreported].forEach(dong => {
+      const r        = latest[dong]
+      const isClosed = closingsMap[dong] || false
+      const tr       = document.createElement('tr')
+      if (!r) tr.className = 'unreported'
+      tr.innerHTML = `
+        <td class="dong-name">${dong}${isClosed ? ' <span style="color:#4ade80;font-size:11px;">✅마감</span>' : ''}</td>
+        <td class="votes">${r ? formatNumber(r.vote_count) + '표' : '미보고'}</td>
+        <td>${r ? r.reporter_name : '-'}</td>
+        <td class="time">${r ? formatTime(r.submitted_at) : '-'}</td>
+      `
+      tbody.appendChild(tr)
+    })
+  }
+
+  // ── 전화 모달 ────────────────────────────────────────
+  function openCallModal(name, phone) {
+    document.getElementById('modal-name').textContent  = name
+    document.getElementById('modal-phone').textContent = phone
+    document.getElementById('call-modal').classList.add('open')
+  }
+  function closeCallModal() {
+    document.getElementById('call-modal').classList.remove('open')
+  }
+
+  // ── 탭 전환 ─────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+      const names = ['realtime', 'reporter']
+      btn.classList.toggle('active', names[i] === tab)
+    })
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+      pane.classList.toggle('active', pane.id === `pane-${tab}`)
+    })
+    if (tab === 'reporter') renderReporterStats()
+  }
+
+  // ── 담당자별 통계 ────────────────────────────────────
+  async function renderReporterStats() {
+    const { data } = await db
+      .from('submissions')
+      .select('reporter_name, reporter_phone, dong, vote_count, submitted_at')
+      .eq('camp_id', camp.id)
+      .order('submitted_at', { ascending: false })
+
+    if (!data || data.length === 0) {
+      document.getElementById('reporter-body').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;color:#64748b;padding:32px;">제출 데이터가 없습니다.</td></tr>'
+      return
+    }
+
+    // 동별 최신값 (실시간 현황과 동일 기준)
+    const dongLatest = {}
+    data.forEach(row => {
+      if (!dongLatest[row.dong]) dongLatest[row.dong] = row
+    })
+
+    // 담당자별 집계
+    const reporters = {}
+    data.forEach(row => {
+      if (!reporters[row.reporter_phone]) {
+        reporters[row.reporter_phone] = {
+          name: row.reporter_name, phone: row.reporter_phone,
+          lastTime: row.submitted_at, lastVotes: {}, allDongs: new Set(), count: 0
+        }
+      }
+      const r = reporters[row.reporter_phone]
+      r.allDongs.add(row.dong)
+      r.count++
+      if (!r.lastVotes[row.dong]) r.lastVotes[row.dong] = row.vote_count
+    })
+
+    // 단위 정보 비동기 추출
+    for (const r of Object.values(reporters)) {
+      // 담당자가 제출한 동별 최신값 합산
+      r.totalVotes = Object.values(r.lastVotes).reduce((s, v) => s + v, 0)
+      r.dongs      = [...r.allDongs]
+      r.units      = new Set()
+      for (const dong of r.dongs) {
+        const u = await getUnitByDong(camp.sigungu, dong)
+        if (u) r.units.add(u)
+      }
+    }
+
+    reporterCache = Object.values(reporters)
+    applyReporterSort()
+  }
+
+  function setReporterSort(order) {
+    reporterSort = order
+    document.getElementById('sort-desc').classList.toggle('active', order === 'desc')
+    document.getElementById('sort-asc').classList.toggle('active', order === 'asc')
+    applyReporterSort()
+  }
+
+  function applyReporterSort() {
+    const sorted = [...reporterCache].sort((a, b) =>
+      reporterSort === 'desc'
+        ? b.totalVotes - a.totalVotes
+        : a.totalVotes - b.totalVotes
+    )
+    renderReporterTable(sorted)
+  }
+
+  function renderReporterTable(sorted) {
+    const maxVotes = Math.max(...sorted.map(r => r.totalVotes), 1)
+    const tbody    = document.getElementById('reporter-body')
+    tbody.innerHTML = ''
+
+    sorted.forEach(r => {
+      const pct      = Math.max(0, Math.round(r.totalVotes / maxVotes * 100))
+      const barColor = r.totalVotes < 0  ? '#ef4444' :
+                       pct >= 80         ? '#10b981' : '#3b82f6'
+
+      const unitBadges = [...r.units].map(u =>
+        `<span class="unit-badge">${u}</span>`).join('')
+      const dongTags = r.dongs.map(d =>
+        `<span class="dong-tag">${d}</span>`).join('')
+
+      const tr = document.createElement('tr')
+      tr.innerHTML = `
+        <td class="r-name">${r.name}</td>
+        <td>${unitBadges || '<span style="color:#475569">-</span>'}</td>
+        <td><div class="dong-tags">${dongTags}</div></td>
+        <td>
+          <div style="display:flex; align-items:center; gap:8px; min-width:160px;">
+            <div style="flex:1; background:#334155; border-radius:4px; height:10px; overflow:hidden;">
+              <div style="width:${pct}%; height:100%; background:${barColor}; border-radius:4px; transition:width 0.4s;"></div>
+            </div>
+            <span class="r-votes" style="white-space:nowrap;">${formatNumber(r.totalVotes)}표</span>
+          </div>
+        </td>
+        <td class="r-cnt">${r.count}회</td>
+        <td class="r-time">${formatTime(r.lastTime)}</td>
+        <td><button class="call-btn" onclick="openCallModal('${r.name}','${r.phone}')">📞 전화</button></td>
+      `
+      tbody.appendChild(tr)
+    })
+  }
+
+  // ── 개표마감 로드 ────────────────────────────────────
+  async function loadClosings() {
+    const { data } = await db
+      .from('closings')
+      .select('dong, cancelled')
+      .eq('camp_id', camp.id)
+      .order('closed_at', { ascending: false })
+
+    // 동별 최신 상태: cancelled=false면 마감
+    const seen = {}
+    closingsMap = {}
+    ;(data || []).forEach(row => {
+      if (seen[row.dong]) return
+      seen[row.dong] = true
+      if (!row.cancelled) closingsMap[row.dong] = true
+    })
+
+    renderClosingOverlay()
+  }
+
+  function renderClosingOverlay() {
+    const total  = allDongs.length
+    const closed = allDongs.filter(d => closingsMap[d]).length
+    const allDone = total > 0 && closed === total
+
+    document.getElementById('all-closed-banner').style.display = allDone ? 'block' : 'none'
+
+    // 동 테이블 마감 표시 갱신 (이미 렌더된 tbody에서 직접 처리)
+    // refreshDashboard 호출로 재렌더
+    if (Object.keys(closingsMap).length > 0) refreshDashboard()
+  }
+
+  function subscribeClosings() {
+    closingsCh = db
+      .channel(`closings-${camp.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'closings',
+        filter: `camp_id=eq.${camp.id}`
+      }, async () => {
+        await loadClosings()
+      })
+      .subscribe()
+  }
+
+  // ── Realtime 구독 ────────────────────────────────────
+  function subscribeRealtime() {
+    realtimeCh = db
+      .channel(`camp-${camp.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'submissions',
+        filter: `camp_id=eq.${camp.id}`
+      }, async payload => {
+        await refreshDashboard()
+        showToast(`📣 ${payload.new.dong}  ${formatNumber(payload.new.vote_count)}표 보고`)
+      })
+      .subscribe()
+  }
+
+  window.addEventListener('beforeunload', () => {
+    if (realtimeCh)  db.removeChannel(realtimeCh)
+    if (closingsCh)  db.removeChannel(closingsCh)
+  })
+
+  function showError(msg) {
+    document.getElementById('loading').style.display      = 'none'
+    document.getElementById('error-screen').style.display = 'block'
+    document.getElementById('error-msg').textContent       = msg
+  }
+
+  document.addEventListener('DOMContentLoaded', init)
+</script>
+</body>
+</html>

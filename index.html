@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>경선 투표 현황</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  <span>정보를 불러오는 중...</span>
+</div>
+
+<div id="error-screen" style="display:none; padding:40px 24px; text-align:center;">
+  <p style="font-size:48px">🗳️</p>
+  <p id="error-msg" style="margin-top:12px; color:#dc2626; font-weight:600;"></p>
+  <p style="margin-top:8px; font-size:13px; color:#888;">
+    올바른 캠프 URL로 접속하세요.
+  </p>
+</div>
+
+<div id="main" style="display:none;">
+
+  <!-- 헤더 -->
+  <header class="camp-header" id="camp-header">
+    <div class="label" id="header-date"></div>
+    <h1 id="header-district"></h1>
+    <span id="header-party" class="party-tag"></span>
+    <p style="font-size:13px; opacity:0.8; margin-top:6px;">경선 투표 현황</p>
+  </header>
+
+  <!-- 역할 선택 -->
+  <div class="card">
+    <p style="font-size:14px; color:#555; margin-bottom:4px;">역할을 선택하세요</p>
+    <div class="role-btns">
+      <button class="role-btn" onclick="goHQ()">
+        <span class="icon">🏢</span>
+        <span>본 부</span>
+      </button>
+      <button class="role-btn" onclick="goField()">
+        <span class="icon">📱</span>
+        <span>현장책임자</span>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- 본부 비밀번호 모달 -->
+<div class="modal-backdrop" id="modal-pw">
+  <div class="modal">
+    <h2>🔐 본부 인증</h2>
+    <div class="form-group">
+      <label>본부 비밀번호</label>
+      <input type="password" id="modal-pw-input" placeholder="비밀번호 입력"
+             onkeydown="if(event.key==='Enter') verifyHQ()">
+    </div>
+    <div id="modal-error" class="msg-error" style="display:none;"></div>
+    <div style="display:flex; gap:8px; margin-top:4px;">
+      <button class="btn btn-secondary" onclick="closeModal()" style="flex:1">취소</button>
+      <button class="btn btn-primary" onclick="verifyHQ()" style="flex:2">확인</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/utils.js"></script>
+<script>
+  let camp = null
+
+  async function init() {
+    // URL에서 slug 파싱: ?slug=xxx 또는 /path/path 방식
+    let slug = getParam('slug')
+
+    if (!slug) {
+      // 경로 방식: /dongdaemun-gap/minjoo
+      const parts = location.pathname.split('/').filter(Boolean)
+      if (parts.length >= 2) {
+        slug = `${parts[0]}-${parts[1]}`
+      }
+    }
+
+    if (!slug) {
+      // 캠프 없을 때 어드민 링크 표시
+      document.getElementById('loading').style.display = 'none'
+      document.getElementById('error-screen').style.display = 'block'
+      document.getElementById('error-msg').textContent = '캠프 URL이 없습니다.'
+      return
+    }
+
+    try {
+      const { data, error } = await db.from('camps').select('*').eq('slug', slug).single()
+      if (error || !data) return showError('등록된 캠프를 찾을 수 없습니다.')
+
+      camp = data
+      document.body.classList.add(`party-${camp.party}`)
+      document.title = `${camp.district} ${camp.party_name} 경선 투표 현황`
+
+      const now = new Date()
+      document.getElementById('header-date').textContent =
+        now.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'short' })
+      document.getElementById('header-district').textContent = `${camp.sido} ${camp.district}`
+      document.getElementById('header-party').textContent    = camp.party_name
+
+      document.getElementById('loading').style.display = 'none'
+      document.getElementById('main').style.display    = 'block'
+
+    } catch (e) {
+      showError('오류: ' + e.message)
+    }
+  }
+
+  function goField() {
+    location.href = `input.html?slug=${camp.slug}`
+  }
+
+  function goHQ() {
+    document.getElementById('modal-pw').classList.add('open')
+    setTimeout(() => document.getElementById('modal-pw-input').focus(), 100)
+  }
+
+  function closeModal() {
+    document.getElementById('modal-pw').classList.remove('open')
+    document.getElementById('modal-pw-input').value = ''
+    document.getElementById('modal-error').style.display = 'none'
+  }
+
+  async function verifyHQ() {
+    const input = document.getElementById('modal-pw-input').value
+    if (!input) return
+
+    const hash = await hashPassword(input)
+    if (hash === camp.hq_password) {
+      location.href = `dashboard.html?slug=${camp.slug}`
+    } else {
+      document.getElementById('modal-error').textContent = '비밀번호가 올바르지 않습니다.'
+      document.getElementById('modal-error').style.display = 'block'
+      document.getElementById('modal-pw-input').select()
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('loading').style.display      = 'none'
+    document.getElementById('error-screen').style.display = 'block'
+    document.getElementById('error-msg').textContent       = msg
+  }
+
+  document.addEventListener('DOMContentLoaded', init)
+</script>
+</body>
+</html>

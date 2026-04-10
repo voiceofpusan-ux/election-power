@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>캠프 생성</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+</head>
+<body style="--party-primary:#004EA2; --party-light:#E3F0FF;">
+
+<header class="camp-header">
+  <div class="label">캠프 관리</div>
+  <h1>캠프 생성</h1>
+</header>
+
+<div class="steps" id="step-dots"></div>
+
+<!-- STEP 1: 선거 종류 + 정당 -->
+<div id="step-1" class="card">
+  <p class="step-title">STEP 1. 선거 종류</p>
+  <div class="role-btns" style="margin-bottom:20px;">
+    <button class="role-btn" id="btn-primary" onclick="selectElectionType('경선')">
+      <span class="icon">🗳️</span><span>경 선</span>
+    </button>
+    <button class="role-btn" id="btn-general" onclick="selectElectionType('본선')">
+      <span class="icon">🏛️</span><span>본 선</span>
+    </button>
+  </div>
+
+  <p class="step-title">정당 선택</p>
+  <div class="role-btns">
+    <button class="role-btn" id="btn-minjoo" onclick="selectParty('minjoo','민주당')" disabled>
+      <span class="icon" style="color:#004EA2;">🔵</span>
+      <span style="color:#004EA2;">민주당</span>
+    </button>
+    <button class="role-btn" id="btn-people" onclick="selectParty('people','국민의힘')" disabled>
+      <span class="icon" style="color:#C9151E;">🔴</span>
+      <span style="color:#C9151E;">국민의힘</span>
+    </button>
+  </div>
+</div>
+
+<!-- STEP 2: 직위 + 지역 + 단위 -->
+<div id="step-2" class="card" style="display:none;">
+  <p class="step-title">STEP 2. 직위 및 지역 선택</p>
+
+  <div class="form-group">
+    <label>직위</label>
+    <select id="sel-position" onchange="onPositionChange()">
+      <option value="">직위 선택</option>
+      <option value="서울시장">서울시장</option>
+      <option value="구청장">구청장</option>
+      <option value="시의원">시의원</option>
+      <option value="구의원">구의원</option>
+      <option value="국회의원">국회의원</option>
+    </select>
+  </div>
+
+  <div class="form-group" id="sido-group">
+    <label>시·도</label>
+    <select id="sel-sido" onchange="onSidoChange()">
+      <option value="">시·도 선택</option>
+      <option value="서울특별시">서울특별시</option>
+      <option value="부산광역시">부산광역시</option>
+      <option value="대구광역시">대구광역시</option>
+      <option value="인천광역시">인천광역시</option>
+      <option value="광주광역시">광주광역시</option>
+      <option value="대전광역시">대전광역시</option>
+      <option value="울산광역시">울산광역시</option>
+      <option value="세종특별자치시">세종특별자치시</option>
+      <option value="경기도">경기도</option>
+      <option value="강원도">강원도</option>
+      <option value="충청북도">충청북도</option>
+      <option value="충청남도">충청남도</option>
+      <option value="전라북도">전라북도</option>
+      <option value="전라남도">전라남도</option>
+      <option value="경상북도">경상북도</option>
+      <option value="경상남도">경상남도</option>
+      <option value="제주특별자치도">제주특별자치도</option>
+    </select>
+  </div>
+
+  <div class="form-group" id="sigungu-group">
+    <label>시·군·구</label>
+    <select id="sel-sigungu">
+      <option value="">시·도를 먼저 선택하세요</option>
+    </select>
+  </div>
+
+  <div class="form-group" id="unit-group" style="display:none;">
+    <label id="unit-label">단위</label>
+    <select id="sel-unit">
+      <option value="">선택</option>
+    </select>
+  </div>
+
+  <div style="display:flex; gap:8px;">
+    <button class="btn btn-secondary" onclick="goStep(1)" style="flex:1;">이전</button>
+    <button class="btn btn-primary"   onclick="goStep(3)" style="flex:2;">다음</button>
+  </div>
+</div>
+
+<!-- STEP 3: 기본 설정 -->
+<div id="step-3" class="card" style="display:none;">
+  <p class="step-title">STEP 3. 기본 설정</p>
+
+  <div class="form-group">
+    <label>목표 득표수</label>
+    <input type="number" id="inp-target" placeholder="예: 1500" inputmode="numeric" min="0">
+  </div>
+
+  <div class="form-group">
+    <label>본부 비밀번호</label>
+    <input type="password" id="inp-pw" placeholder="대시보드 접속용 비밀번호">
+  </div>
+
+  <div class="form-group">
+    <label>비밀번호 확인</label>
+    <input type="password" id="inp-pw2" placeholder="비밀번호 재입력">
+  </div>
+
+  <div id="step3-error" class="msg-error" style="display:none;"></div>
+
+  <div style="display:flex; gap:8px;">
+    <button class="btn btn-secondary" onclick="goStep(2)" style="flex:1;">이전</button>
+    <button class="btn btn-primary"   onclick="createCamp()" style="flex:2;">캠프 생성</button>
+  </div>
+</div>
+
+<!-- STEP 4: 생성 완료 -->
+<div id="step-4" class="card" style="display:none;">
+  <p style="font-weight:700; margin-bottom:4px; font-size:15px; color:#16a34a;">✅ 캠프 생성 완료!</p>
+  <p id="result-district" style="margin-bottom:16px; color:#555; font-size:14px;"></p>
+
+  <div class="form-group">
+    <label>캠프 URL</label>
+    <div class="url-box" id="result-url"></div>
+  </div>
+
+  <div style="display:flex; gap:8px; margin-bottom:12px;">
+    <button class="btn btn-primary"  onclick="copyURL()"       style="flex:1;">URL 복사</button>
+    <button class="btn btn-outline"  onclick="shareKakao()"    style="flex:1;">카카오 공유</button>
+  </div>
+
+  <div class="qr-wrap">
+    <canvas id="qr-canvas"></canvas>
+  </div>
+
+  <div class="divider" style="margin:12px 0;"></div>
+
+  <p style="font-size:13px; font-weight:700; color:#555; margin-bottom:8px;">현장책임자 안내 문자</p>
+  <div id="share-text"
+       style="background:#f8f8f8; border-radius:8px; padding:12px;
+              font-size:13px; white-space:pre-line; line-height:1.7; color:#333;"></div>
+  <button class="btn btn-secondary" onclick="copyShareText()" style="margin-top:8px;">
+    문자 내용 복사
+  </button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/address.js"></script>
+<script>
+  const SIGUNGU_BY_SIDO = {
+    '서울특별시': ['종로구','중구','용산구','성동구','광진구','동대문구','중랑구','성북구','강북구','도봉구','노원구','은평구','서대문구','마포구','양천구','강서구','구로구','금천구','영등포구','동작구','관악구','서초구','강남구','송파구','강동구'],
+    '부산광역시': ['중구','서구','동구','영도구','부산진구','동래구','남구','북구','해운대구','사하구','금정구','강서구','연제구','수영구','사상구','기장군'],
+    '대구광역시': ['중구','동구','서구','남구','북구','수성구','달서구','달성군'],
+    '인천광역시': ['중구','동구','미추홀구','연수구','남동구','부평구','계양구','서구','강화군','옹진군'],
+    '경기도': ['수원시','성남시','의정부시','안양시','부천시','광명시','평택시','동두천시','안산시','고양시','과천시','구리시','남양주시','오산시','시흥시','군포시','의왕시','하남시','용인시','파주시','이천시','안성시','김포시','화성시','광주시','양주시','포천시','여주시','양평군','가평군','연천군'],
+    '강원도': ['춘천시','원주시','강릉시','동해시','태백시','속초시','삼척시'],
+    '충청북도': ['청주시','충주시','제천시'],
+    '충청남도': ['천안시','공주시','보령시','아산시','서산시','논산시','계룡시','당진시'],
+    '전라북도': ['전주시','군산시','익산시','정읍시','남원시','김제시'],
+    '전라남도': ['목포시','여수시','순천시','나주시','광양시'],
+    '경상북도': ['포항시','경주시','김천시','안동시','구미시','영주시','영천시','상주시','문경시','경산시'],
+    '경상남도': ['창원시','진주시','통영시','사천시','김해시','밀양시','거제시','양산시'],
+    '광주광역시': ['동구','서구','남구','북구','광산구'],
+    '대전광역시': ['동구','중구','서구','유성구','대덕구'],
+    '울산광역시': ['중구','남구','동구','북구','울주군'],
+    '세종특별자치시': ['세종시'],
+    '제주특별자치도': ['제주시','서귀포시']
+  }
+
+  let selectedElectionType = ''
+  let selectedParty        = ''
+  let selectedPartyName    = ''
+  let createdCamp          = null
+  let currentStep          = 1
+
+  // ── 선거 종류 선택 ──────────────────────────────────
+  function selectElectionType(type) {
+    selectedElectionType = type
+    const btns = { '경선': 'btn-primary', '본선': 'btn-general' }
+    ;['btn-primary','btn-general'].forEach(id => {
+      document.getElementById(id)?.classList.remove('selected')
+    })
+    document.getElementById(btns[type])?.classList.add('selected')
+    // 정당 버튼 활성화
+    document.getElementById('btn-minjoo').disabled = false
+    document.getElementById('btn-people').disabled = false
+  }
+
+  // ── 정당 선택 ──────────────────────────────────────
+  function selectParty(code, name) {
+    if (!selectedElectionType) { alert('선거 종류를 먼저 선택하세요.'); return }
+    selectedParty     = code
+    selectedPartyName = name
+    document.body.style.setProperty('--party-primary', code === 'minjoo' ? '#004EA2' : '#C9151E')
+    document.body.style.setProperty('--party-light',   code === 'minjoo' ? '#E3F0FF' : '#FFE8E8')
+    goStep(2)
+  }
+
+  // ── 직위 변경 → 단위 옵션 동적 변경 ─────────────────
+  function onPositionChange() {
+    const position  = document.getElementById('sel-position').value
+    const unitGroup = document.getElementById('unit-group')
+    const unitSel   = document.getElementById('sel-unit')
+    const unitLabel = document.getElementById('unit-label')
+    const sigunguGrp = document.getElementById('sigungu-group')
+
+    // 서울시장: 시군구 숨김
+    sigunguGrp.style.display = position === '서울시장' ? 'none' : 'block'
+
+    const units = POSITION_UNITS[position] || []
+    unitSel.innerHTML = '<option value="">선택</option>'
+
+    if (units.length > 0) {
+      unitGroup.style.display = 'block'
+      if (position === '구의원') {
+        unitLabel.textContent = '단위 (가·나·다·라)'
+      } else {
+        unitLabel.textContent = '단위 (갑·을·병)'
+      }
+      units.forEach(u => {
+        const o = document.createElement('option')
+        o.value = u; o.textContent = u
+        unitSel.appendChild(o)
+      })
+    } else {
+      unitGroup.style.display = 'none'
+    }
+  }
+
+  // ── 시도 변경 ──────────────────────────────────────
+  function onSidoChange() {
+    const sido = document.getElementById('sel-sido').value
+    const sel  = document.getElementById('sel-sigungu')
+    sel.innerHTML = '<option value="">시·군·구 선택</option>'
+    ;(SIGUNGU_BY_SIDO[sido] || []).forEach(sg => {
+      const o = document.createElement('option')
+      o.value = sg; o.textContent = sg
+      sel.appendChild(o)
+    })
+  }
+
+  // ── 스텝 이동 ──────────────────────────────────────
+  function goStep(n) {
+    if (n === 3) {
+      const position = document.getElementById('sel-position').value
+      const sido     = document.getElementById('sel-sido').value
+      const sigungu  = document.getElementById('sel-sigungu').value
+      const unit     = document.getElementById('sel-unit').value
+      const units    = POSITION_UNITS[position] || []
+
+      if (!position) { alert('직위를 선택하세요.'); return }
+      if (!sido)     { alert('시·도를 선택하세요.'); return }
+      if (position !== '서울시장' && !sigungu) { alert('시·군·구를 선택하세요.'); return }
+      if (units.length > 0 && !unit) { alert('단위를 선택하세요.'); return }
+    }
+    for (let i = 1; i <= 4; i++) {
+      document.getElementById(`step-${i}`).style.display = i === n ? 'block' : 'none'
+    }
+    currentStep = n
+    renderDots()
+    window.scrollTo(0, 0)
+  }
+
+  function renderDots() {
+    const wrap = document.getElementById('step-dots')
+    wrap.innerHTML = ''
+    for (let i = 1; i <= 4; i++) {
+      const d = document.createElement('div')
+      d.className = `step-dot${i <= currentStep ? ' active' : ''}`
+      wrap.appendChild(d)
+    }
+  }
+
+  // ── 캠프 생성 ──────────────────────────────────────
+  async function createCamp() {
+    const position = document.getElementById('sel-position').value
+    const sido     = document.getElementById('sel-sido').value
+    const sigungu  = position === '서울시장' ? '서울특별시' : document.getElementById('sel-sigungu').value
+    const unit     = document.getElementById('sel-unit').value
+    const target   = parseInt(document.getElementById('inp-target').value) || 0
+    const pw       = document.getElementById('inp-pw').value
+    const pw2      = document.getElementById('inp-pw2').value
+    const errEl    = document.getElementById('step3-error')
+
+    errEl.style.display = 'none'
+
+    if (!pw || pw.length < 4) {
+      errEl.textContent = '비밀번호를 4자 이상 입력하세요.'
+      errEl.style.display = 'block'; return
+    }
+    if (pw !== pw2) {
+      errEl.textContent = '비밀번호가 일치하지 않습니다.'
+      errEl.style.display = 'block'; return
+    }
+
+    // 서울시장 → sigunguEng = 'seoul'
+    const sigunguEng = position === '서울시장' ? 'seoul' : SIGUNGU_ENG[sigungu]
+    if (!sigunguEng) {
+      errEl.textContent = `'${sigungu}'의 영문 슬러그가 없습니다.`
+      errEl.style.display = 'block'; return
+    }
+
+    const slug     = generateSlug(sigunguEng, position, unit, selectedParty)
+    const district = position === '서울시장'
+      ? `서울시장`
+      : unit ? `${sigungu} ${position}${unit}` : `${sigungu} ${position}`
+
+    // 중복 확인
+    const { data: exists } = await db.from('camps').select('id').eq('slug', slug).maybeSingle()
+    if (exists) {
+      errEl.textContent = '이미 등록된 선거구입니다.'
+      errEl.style.display = 'block'; return
+    }
+
+    const pwHash = await hashPassword(pw)
+
+    const { data: camp, error } = await db
+      .from('camps')
+      .insert({
+        slug,
+        party: selectedParty, party_name: selectedPartyName,
+        sido, sigungu, sigungu_eng: sigunguEng,
+        district, unit: unit || '',
+        hq_password: pwHash,
+        target_votes: target,
+        election_type: selectedElectionType
+      })
+      .select().single()
+
+    if (error) {
+      errEl.textContent = '생성 오류: ' + error.message
+      errEl.style.display = 'block'; return
+    }
+
+    createdCamp = camp
+    showResult()
+  }
+
+  // ── 결과 표시 ──────────────────────────────────────
+  function showResult() {
+    const camp = createdCamp
+    const url  = `${CONFIG.BASE_URL}/index.html?slug=${camp.slug}`
+
+    document.getElementById('result-district').textContent =
+      `${camp.sido} ${camp.district} ${camp.party_name} [${camp.election_type}]`
+    document.getElementById('result-url').textContent = url
+
+    QRCode.toCanvas(document.getElementById('qr-canvas'), url, { width: 180, margin: 1 })
+
+    const txt = `[${camp.district} ${camp.party_name} ${camp.election_type}]\n` +
+      `현장책임자 투표수 입력 링크\n\n` +
+      `접속: ${url}\n` +
+      `→ [현장책임자] 선택\n` +
+      `→ 이름·전화번호·담당동·투표수 입력`
+    document.getElementById('share-text').textContent = txt
+
+    goStep(4)
+  }
+
+  function copyURL() {
+    navigator.clipboard.writeText(`${CONFIG.BASE_URL}/index.html?slug=${createdCamp.slug}`)
+      .then(() => showToast('URL 복사됨'))
+  }
+  function copyShareText() {
+    navigator.clipboard.writeText(document.getElementById('share-text').textContent)
+      .then(() => showToast('문자 내용 복사됨'))
+  }
+  function shareKakao() {
+    const url = `${CONFIG.BASE_URL}/index.html?slug=${createdCamp.slug}`
+    const kakao = window.Kakao
+    if (kakao && kakao.isInitialized()) {
+      kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: `${createdCamp.district} ${createdCamp.party_name} ${createdCamp.election_type}`,
+          description: '투표수를 입력해주세요.',
+          link: { mobileWebUrl: url, webUrl: url }
+        }
+      })
+    } else {
+      copyURL()
+      alert('카카오 SDK 미설정 → URL이 복사됐습니다.')
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    renderDots()
+  })
+</script>
+<style>
+  .step-title { font-weight:700; margin-bottom:16px; font-size:15px; }
+  .role-btn.selected {
+    border-color: var(--party-primary);
+    background: var(--party-light);
+  }
+  .role-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+</style>
+</body>
+</html>
