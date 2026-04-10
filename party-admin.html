@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>정당 어드민</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── 로그인 ───────────────────────────────────────── */
+    .login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .login-box {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .login-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .login-sub {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 28px;
+    }
+    .party-btns {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .party-btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 10px;
+      border: 2px solid #334155;
+      background: #0f172a;
+      color: #94a3b8;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .party-btn.minjoo.selected {
+      border-color: #004EA2;
+      background: #0c1f3d;
+      color: #60a5fa;
+    }
+    .party-btn.people.selected {
+      border-color: #C9151E;
+      background: #3d0c0e;
+      color: #f87171;
+    }
+    .login-input {
+      width: 100%;
+      height: 48px;
+      background: #0f172a;
+      border: 1.5px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 15px;
+      padding: 0 14px;
+      margin-bottom: 14px;
+    }
+    .login-input:focus { outline: none; border-color: #3b82f6; }
+    .login-btn {
+      width: 100%;
+      height: 48px;
+      background: #1d4ed8;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .login-btn:hover { background: #2563eb; }
+    .login-error {
+      color: #f87171;
+      font-size: 13px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* ── 헤더 ─────────────────────────────────────────── */
+    .header {
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1e293b;
+    }
+    .header.minjoo { background: #004EA2; }
+    .header.people { background: #C9151E; }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-title { font-size: 18px; font-weight: 700; color: #fff; }
+    .header-sub { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px; padding: 4px 12px;
+      font-size: 12px; color: #fff; font-weight: 600;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #4ade80; animation: blink 1.3s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .logout-btn {
+      padding: 6px 16px; border-radius: 8px;
+      background: rgba(255,255,255,0.15); color: #fff;
+      border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .logout-btn:hover { background: rgba(255,255,255,0.28); }
+
+    /* ── 요약 바 ──────────────────────────────────────── */
+    .summary-bar {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .sum-item { padding: 0 28px; text-align: center; }
+    .sum-item:first-child { padding-left: 0; }
+    .sum-val { font-size: 22px; font-weight: 700; color: #fff; }
+    .sum-val.green { color: #4ade80; }
+    .sum-val.red   { color: #f87171; }
+    .sum-val.yellow { color: #fbbf24; }
+    .sum-lbl { font-size: 11px; color: #64748b; margin-top: 3px; }
+    .sum-divider { width: 1px; background: #334155; height: 36px; flex-shrink: 0; }
+    .refresh-info { margin-left: auto; font-size: 12px; color: #475569; }
+
+    /* ── 필터/정렬 바 ─────────────────────────────────── */
+    .filter-bar {
+      padding: 12px 28px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      flex-wrap: wrap;
+    }
+    .filter-lbl { font-size: 13px; color: #64748b; margin-right: 4px; }
+    .filter-btn {
+      padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer;
+    }
+    .filter-btn.active { background: #1d4ed8; color: #fff; border-color: transparent; }
+    .search-input {
+      margin-left: auto;
+      height: 32px; padding: 0 12px;
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 6px; color: #e2e8f0; font-size: 13px;
+      width: 180px;
+    }
+    .search-input:focus { outline: none; border-color: #3b82f6; }
+
+    /* ── 캠프 카드 ────────────────────────────────────── */
+    .camp-list { padding: 16px 28px; display: flex; flex-direction: column; gap: 10px; }
+    .camp-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .camp-card:hover { border-color: #475569; background: #243047; }
+    .camp-card.danger { border-left: 4px solid #ef4444; }
+    .camp-card.warning { border-left: 4px solid #fbbf24; }
+    .camp-card.good { border-left: 4px solid #10b981; }
+
+    .camp-info { flex: 1; min-width: 0; }
+    .camp-name { font-size: 15px; font-weight: 700; color: #fff; }
+    .camp-meta { font-size: 12px; color: #64748b; margin-top: 3px; }
+    .camp-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 700; margin-left: 6px;
+    }
+    .badge-primary { background: #1d3a6e; color: #93c5fd; }
+    .badge-general { background: #3d0c0e; color: #fca5a5; }
+
+    .camp-stats { display: flex; align-items: center; gap: 24px; flex-shrink: 0; }
+    .stat-block { text-align: right; }
+    .stat-val { font-size: 18px; font-weight: 700; color: #fff; }
+    .stat-lbl { font-size: 11px; color: #64748b; }
+
+    .camp-rate-wrap { width: 140px; flex-shrink: 0; }
+    .rate-label {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: #94a3b8; margin-bottom: 4px;
+    }
+    .rate-bar-bg {
+      height: 8px; background: #334155; border-radius: 4px; overflow: hidden;
+    }
+    .rate-bar {
+      height: 100%; border-radius: 4px; transition: width 0.4s;
+    }
+
+    .camp-arrow { color: #475569; font-size: 18px; flex-shrink: 0; }
+
+    /* ── 경보 배지 ────────────────────────────────────── */
+    .alert-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;
+    }
+    .alert-badge.danger  { background: #450a0a; color: #f87171; }
+    .alert-badge.warning { background: #451a03; color: #fbbf24; }
+
+    /* ── 로딩 ─────────────────────────────────────────── */
+    .loading {
+      display: flex; align-items: center; justify-content: center;
+      height: 200px; gap: 12px; color: #94a3b8; font-size: 15px;
+    }
+    .spinner {
+      width: 22px; height: 22px; border: 3px solid #334155;
+      border-top-color: #60a5fa; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── 빈 상태 ──────────────────────────────────────── */
+    .empty {
+      text-align: center; padding: 60px 24px; color: #475569;
+    }
+
+    @media (max-width: 640px) {
+      .camp-stats { gap: 12px; }
+      .camp-rate-wrap { display: none; }
+      .summary-bar { gap: 8px; }
+      .sum-item { padding: 0 12px; }
+      .camp-list { padding: 12px 16px; }
+      .filter-bar { padding: 10px 16px; }
+      .header { padding: 12px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div id="login-screen" class="login-wrap">
+  <div class="login-box">
+    <div class="login-title">정당 어드민</div>
+    <div class="login-sub">정당을 선택하고 비밀번호를 입력하세요</div>
+
+    <div class="party-btns">
+      <button class="party-btn minjoo" id="btn-minjoo" onclick="selectParty('minjoo','민주당')">
+        🔵 민주당
+      </button>
+      <button class="party-btn people" id="btn-people" onclick="selectParty('people','국민의힘')">
+        🔴 국민의힘
+      </button>
+    </div>
+
+    <input type="password" id="inp-pw" class="login-input"
+           placeholder="비밀번호" onkeydown="if(event.key==='Enter') login()">
+    <button class="login-btn" onclick="login()">로그인</button>
+    <div id="login-error" class="login-error"></div>
+  </div>
+</div>
+
+<!-- 메인 대시보드 -->
+<div id="main" style="display:none;">
+
+  <header class="header" id="main-header">
+    <div class="header-left">
+      <div>
+        <div class="header-title" id="header-title"></div>
+        <div class="header-sub">전체 캠프 현황</div>
+      </div>
+      <div class="live-badge">
+        <span class="live-dot"></span> 실시간
+      </div>
+    </div>
+    <button class="logout-btn" onclick="logout()">로그아웃</button>
+  </header>
+
+  <div class="summary-bar">
+    <div class="sum-item">
+      <div class="sum-val" id="sum-camps">-</div>
+      <div class="sum-lbl">전체 캠프</div>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-item">
+      <div class="sum-val green" id="sum-total">-</div>
+      <div class="sum-lbl">총 투표수</div>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-item">
+      <div class="sum-val yellow" id="sum-avg-rate">-</div>
+      <div class="sum-lbl">평균 달성률</div>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-item">
+      <div class="sum-val red" id="sum-danger">-</div>
+      <div class="sum-lbl">저조 캠프 (60%↓)</div>
+    </div>
+    <div class="refresh-info" id="refresh-info"></div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-lbl">정렬:</span>
+    <button class="filter-btn active" id="sort-rate-asc"  onclick="setSort('rate-asc')">달성률 낮은순 ↑</button>
+    <button class="filter-btn"        id="sort-rate-desc" onclick="setSort('rate-desc')">달성률 높은순 ↓</button>
+    <button class="filter-btn"        id="sort-votes"     onclick="setSort('votes')">투표수순 ↓</button>
+    <input type="text" class="search-input" id="search-input"
+           placeholder="선거구 검색..." oninput="renderCamps()">
+  </div>
+
+  <div id="camp-loading" class="loading">
+    <div class="spinner"></div><span>불러오는 중...</span>
+  </div>
+  <div class="camp-list" id="camp-list"></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/utils.js"></script>
+<script>
+  let selectedParty     = ''
+  let selectedPartyName = ''
+  let campData          = []
+  let currentSort       = 'rate-asc'
+  let refreshTimer      = null
+
+  // ── 정당 선택 ──────────────────────────────────────
+  function selectParty(code, name) {
+    selectedParty     = code
+    selectedPartyName = name
+    document.getElementById('btn-minjoo').classList.toggle('selected', code === 'minjoo')
+    document.getElementById('btn-people').classList.toggle('selected', code === 'people')
+  }
+
+  // ── 로그인 ─────────────────────────────────────────
+  async function login() {
+    const pw    = document.getElementById('inp-pw').value
+    const errEl = document.getElementById('login-error')
+    errEl.style.display = 'none'
+
+    if (!selectedParty) {
+      errEl.textContent = '정당을 선택하세요.'
+      errEl.style.display = 'block'; return
+    }
+    if (!pw) {
+      errEl.textContent = '비밀번호를 입력하세요.'
+      errEl.style.display = 'block'; return
+    }
+
+    const pwHash = await hashPassword(pw)
+
+    const { data, error } = await db
+      .from('party_settings')
+      .select('password_hash')
+      .eq('party', selectedParty)
+      .single()
+
+    if (error || !data) {
+      errEl.textContent = '정당 설정이 없습니다. 관리자에게 문의하세요.'
+      errEl.style.display = 'block'; return
+    }
+
+    if (pwHash !== data.password_hash) {
+      errEl.textContent = '비밀번호가 올바르지 않습니다.'
+      errEl.style.display = 'block'; return
+    }
+
+    // 세션 저장
+    sessionStorage.setItem('party_admin', JSON.stringify({
+      party: selectedParty, name: selectedPartyName
+    }))
+
+    showDashboard()
+  }
+
+  // ── 로그아웃 ───────────────────────────────────────
+  function logout() {
+    sessionStorage.removeItem('party_admin')
+    clearInterval(refreshTimer)
+    document.getElementById('main').style.display = 'none'
+    document.getElementById('login-screen').style.display = 'flex'
+    document.getElementById('inp-pw').value = ''
+  }
+
+  // ── 대시보드 표시 ──────────────────────────────────
+  async function showDashboard() {
+    document.getElementById('login-screen').style.display = 'none'
+    document.getElementById('main').style.display = 'block'
+
+    const header = document.getElementById('main-header')
+    header.className = `header ${selectedParty}`
+    document.getElementById('header-title').textContent =
+      `${selectedPartyName} 전체 캠프 현황`
+
+    await loadData()
+
+    // 30초 자동 새로고침
+    refreshTimer = setInterval(loadData, 30000)
+  }
+
+  // ── 데이터 로드 ────────────────────────────────────
+  async function loadData() {
+    // 캠프 목록
+    const { data: camps } = await db
+      .from('camps')
+      .select('id, slug, district, sido, election_type, target_votes, is_active')
+      .eq('party', selectedParty)
+      .eq('is_active', true)
+      .order('district')
+
+    if (!camps || camps.length === 0) {
+      document.getElementById('camp-loading').style.display = 'none'
+      document.getElementById('camp-list').innerHTML =
+        '<div class="empty">등록된 캠프가 없습니다.</div>'
+      return
+    }
+
+    const campIds = camps.map(c => c.id)
+
+    // 전체 submissions 한 번에 조회
+    const { data: subs } = await db
+      .from('submissions')
+      .select('camp_id, dong, vote_count, submitted_at')
+      .in('camp_id', campIds)
+
+    // 캠프별 집계
+    const subsByCamp = {}
+    ;(subs || []).forEach(row => {
+      if (!subsByCamp[row.camp_id]) subsByCamp[row.camp_id] = []
+      subsByCamp[row.camp_id].push(row)
+    })
+
+    campData = camps.map(camp => {
+      const rows     = subsByCamp[camp.id] || []
+      const total    = rows.reduce((s, r) => s + r.vote_count, 0)
+      const reported = new Set(rows.map(r => r.dong)).size
+      const rate     = camp.target_votes > 0
+        ? Math.round(total / camp.target_votes * 100) : null
+      const lastTime = rows.length
+        ? rows.reduce((a, b) => a.submitted_at > b.submitted_at ? a : b).submitted_at
+        : null
+
+      return { ...camp, total, reported, rate, lastTime }
+    })
+
+    renderSummary()
+    renderCamps()
+
+    document.getElementById('camp-loading').style.display = 'none'
+    document.getElementById('refresh-info').textContent =
+      '마지막 갱신: ' + new Date().toLocaleTimeString('ko-KR')
+  }
+
+  // ── 요약 ───────────────────────────────────────────
+  function renderSummary() {
+    const total   = campData.reduce((s, c) => s + c.total, 0)
+    const rates   = campData.filter(c => c.rate !== null).map(c => c.rate)
+    const avgRate = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : 0
+    const danger  = campData.filter(c => c.rate !== null && c.rate < 60).length
+
+    document.getElementById('sum-camps').textContent    = campData.length
+    document.getElementById('sum-total').textContent    = formatNumber(total)
+    document.getElementById('sum-avg-rate').textContent = avgRate + '%'
+    document.getElementById('sum-danger').textContent   = danger
+  }
+
+  // ── 캠프 목록 렌더 ─────────────────────────────────
+  function renderCamps() {
+    const keyword = document.getElementById('search-input').value.trim()
+    let list = [...campData]
+
+    // 검색 필터
+    if (keyword) {
+      list = list.filter(c =>
+        c.district.includes(keyword) || c.sido.includes(keyword)
+      )
+    }
+
+    // 정렬
+    if (currentSort === 'rate-asc') {
+      list.sort((a, b) => (a.rate ?? 999) - (b.rate ?? 999))
+    } else if (currentSort === 'rate-desc') {
+      list.sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1))
+    } else {
+      list.sort((a, b) => b.total - a.total)
+    }
+
+    const container = document.getElementById('camp-list')
+    container.innerHTML = ''
+
+    if (list.length === 0) {
+      container.innerHTML = '<div class="empty">검색 결과가 없습니다.</div>'
+      return
+    }
+
+    list.forEach(camp => {
+      const rate    = camp.rate
+      const rateStr = rate !== null ? rate + '%' : '-'
+      const barW    = rate !== null ? Math.min(rate, 100) : 0
+      const barColor = rate === null ? '#475569' :
+                       rate >= 80   ? '#10b981' :
+                       rate >= 60   ? '#3b82f6' : '#ef4444'
+      const cardClass = rate === null ? '' :
+                        rate < 60   ? 'danger' :
+                        rate < 80   ? 'warning' : 'good'
+
+      const alertBadge = rate !== null && rate < 60
+        ? `<span class="alert-badge danger">⚠️ 저조</span>` :
+        rate !== null && rate < 80
+        ? `<span class="alert-badge warning">주의</span>` : ''
+
+      const typeBadge = camp.election_type === '경선'
+        ? `<span class="camp-badge badge-primary">경선</span>`
+        : `<span class="camp-badge badge-general">본선</span>`
+
+      const lastReport = camp.lastTime
+        ? formatTime(camp.lastTime) : '<span style="color:#ef4444">미보고</span>'
+
+      const div = document.createElement('div')
+      div.className = `camp-card ${cardClass}`
+      div.onclick   = () => {
+        window.open(`dashboard.html?slug=${camp.slug}`, '_blank')
+      }
+      div.innerHTML = `
+        <div class="camp-info">
+          <div class="camp-name">
+            ${camp.district} ${typeBadge}
+            ${alertBadge}
+          </div>
+          <div class="camp-meta">
+            ${camp.sido} &nbsp;·&nbsp;
+            보고 ${camp.reported}개 동 &nbsp;·&nbsp;
+            마지막 보고 ${lastReport}
+          </div>
+        </div>
+
+        <div class="camp-rate-wrap">
+          <div class="rate-label">
+            <span>달성률</span>
+            <span style="font-weight:700; color:#fff;">${rateStr}</span>
+          </div>
+          <div class="rate-bar-bg">
+            <div class="rate-bar" style="width:${barW}%; background:${barColor};"></div>
+          </div>
+        </div>
+
+        <div class="camp-stats">
+          <div class="stat-block">
+            <div class="stat-val">${formatNumber(camp.total)}</div>
+            <div class="stat-lbl">총 투표수</div>
+          </div>
+        </div>
+
+        <div class="camp-arrow">›</div>
+      `
+      container.appendChild(div)
+    })
+  }
+
+  // ── 정렬 ───────────────────────────────────────────
+  function setSort(type) {
+    currentSort = type
+    ;['rate-asc','rate-desc','votes'].forEach(t => {
+      const id = `sort-${t}`
+      document.getElementById(id)?.classList.toggle('active', t === type)
+    })
+    renderCamps()
+  }
+
+  // ── 세션 복원 ──────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    const session = sessionStorage.getItem('party_admin')
+    if (session) {
+      const { party, name } = JSON.parse(session)
+      selectedParty     = party
+      selectedPartyName = name
+      showDashboard()
+    }
+  })
+</script>
+</body>
+</html>
