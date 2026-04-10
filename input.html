@@ -74,6 +74,24 @@
     </button>
   </div>
 
+  <!-- 차감 동 선택 모달 -->
+  <div id="deduct-modal" style="display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.55); z-index:999; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:16px; max-width:340px; width:90%; padding:24px;">
+      <h3 style="font-size:15px; font-weight:700; margin-bottom:8px;">어느 동에서 차감할까요?</h3>
+      <p style="font-size:13px; color:#888; margin-bottom:16px;">
+        차감량: <strong id="deduct-amount" style="color:#dc2626;"></strong>
+      </p>
+      <select id="deduct-dong-sel" style="width:100%; height:44px; font-size:15px;
+        border:1.5px solid #e0e0e0; border-radius:8px; padding:0 12px; margin-bottom:16px;">
+      </select>
+      <div style="display:flex; gap:8px;">
+        <button id="btn-deduct-cancel" class="btn btn-secondary" style="flex:1;">취소</button>
+        <button id="btn-deduct-confirm" class="btn btn-primary" style="flex:2;">확인</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 실적 모달 -->
   <div id="ranking-modal" style="display:none; position:fixed; inset:0;
     background:rgba(0,0,0,0.55); z-index:999; overflow-y:auto; padding:20px 12px;">
@@ -247,13 +265,86 @@
       return showFormError('전화번호를 확인하세요. (010-XXXX-XXXX)')
     if (!dong)
       return showFormError('담당 동을 선택하세요.')
-    if (isNaN(votes))
+    if (isNaN(votes) || votes === 0)
       return showFormError('투표자수를 입력하세요.')
+
+    // 음수 입력 → 차감 처리
+    if (votes < 0) {
+      await handleNegativeSubmit(name, phone, dong, votes)
+      return
+    }
 
     // 동일 번호 다른 이름 차단
     const blocked = await checkDuplicatePhone()
     if (blocked) return
 
+    await doInsert(name, phone, dong, votes)
+  }
+
+  // ── 음수 차감 처리 ────────────────────────────────
+  async function handleNegativeSubmit(name, phone, dong, votes) {
+    // 해당 동에 본인 제출 이력 확인
+    const { data } = await db
+      .from('submissions')
+      .select('dong, vote_count')
+      .eq('camp_id', camp.id)
+      .eq('reporter_phone', phone)
+      .eq('dong', dong)
+      .limit(1)
+
+    if (data && data.length > 0) {
+      // 같은 동 이력 있음 → 바로 차감 제출
+      await doInsert(name, phone, dong, votes)
+    } else {
+      // 같은 동 이력 없음 → 어느 동에서 차감할지 물어봄
+      await openDeductModal(name, phone, votes)
+    }
+  }
+
+  // ── 차감 동 선택 모달 ─────────────────────────────
+  async function openDeductModal(name, phone, votes) {
+    // 본인이 제출한 동 목록 조회
+    const { data } = await db
+      .from('submissions')
+      .select('dong')
+      .eq('camp_id', camp.id)
+      .eq('reporter_phone', phone)
+      .order('submitted_at', { ascending: false })
+
+    if (!data || data.length === 0) {
+      showFormError('제출 이력이 없어 차감할 수 없습니다.')
+      return
+    }
+
+    // 중복 제거
+    const dongs = [...new Set(data.map(r => r.dong))]
+
+    const sel = document.getElementById('deduct-dong-sel')
+    sel.innerHTML = '<option value="">동 선택</option>'
+    dongs.forEach(d => {
+      const o = document.createElement('option')
+      o.value = d; o.textContent = d
+      sel.appendChild(o)
+    })
+
+    document.getElementById('deduct-amount').textContent = `${votes}표`
+    document.getElementById('deduct-modal').style.display = 'flex'
+
+    // 확인 버튼
+    document.getElementById('btn-deduct-confirm').onclick = async () => {
+      const selectedDong = sel.value
+      if (!selectedDong) { alert('동을 선택하세요.'); return }
+      document.getElementById('deduct-modal').style.display = 'none'
+      await doInsert(name, phone, selectedDong, votes)
+    }
+
+    document.getElementById('btn-deduct-cancel').onclick = () => {
+      document.getElementById('deduct-modal').style.display = 'none'
+    }
+  }
+
+  // ── 실제 INSERT ───────────────────────────────────
+  async function doInsert(name, phone, dong, votes) {
     const btn = document.getElementById('btn-submit')
     btn.disabled = true
     btn.textContent = '제출 중...'
@@ -271,12 +362,12 @@
 
       if (error) throw error
 
-      // 로컬 저장
       localStorage.setItem(`cv_input_${camp.slug}`,
         JSON.stringify({ name, phone, dong }))
 
       lastVoteCount = votes
-      showFormSuccess(`${dong} ${formatNumber(votes)}표 제출 완료!`)
+      const label = votes < 0 ? `${dong} ${formatNumber(votes)}표 차감 완료!` : `${dong} ${formatNumber(votes)}표 제출 완료!`
+      showFormSuccess(label)
       document.getElementById('inp-votes').value = ''
       await loadMyHistory()
 
