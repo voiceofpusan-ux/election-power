@@ -283,24 +283,18 @@
 
   // ── 음수 차감 처리 ────────────────────────────────
   async function handleNegativeSubmit(name, phone, dong, votes) {
-    // 해당 동에 본인 최신 제출 이력 확인
+    // 해당 동에 본인 제출 이력 확인
     const { data } = await db
       .from('submissions')
-      .select('dong, vote_count')
+      .select('dong')
       .eq('camp_id', camp.id)
       .eq('reporter_phone', phone)
       .eq('dong', dong)
-      .order('submitted_at', { ascending: false })
       .limit(1)
 
     if (data && data.length > 0) {
-      // 같은 동 이력 있음 → 누적값에서 차감해 새 값으로 제출
-      const newTotal = data[0].vote_count + votes
-      if (newTotal < 0) {
-        showFormError(`차감 후 음수가 됩니다. (현재 ${formatNumber(data[0].vote_count)}표)`)
-        return
-      }
-      await doInsert(name, phone, dong, newTotal)
+      // 같은 동 이력 있음 → 음수값 그대로 제출 (합산에서 차감됨)
+      await doInsert(name, phone, dong, votes)
     } else {
       // 같은 동 이력 없음 → 어느 동에서 차감할지 물어봄
       await openDeductModal(name, phone, votes)
@@ -309,10 +303,10 @@
 
   // ── 차감 동 선택 모달 ─────────────────────────────
   async function openDeductModal(name, phone, votes) {
-    // 본인이 제출한 동별 최신값 조회
+    // 본인이 제출한 동 목록 조회
     const { data } = await db
       .from('submissions')
-      .select('dong, vote_count')
+      .select('dong')
       .eq('camp_id', camp.id)
       .eq('reporter_phone', phone)
       .order('submitted_at', { ascending: false })
@@ -322,18 +316,13 @@
       return
     }
 
-    // 동별 최신값만 추출
-    const latestByDong = {}
-    data.forEach(r => {
-      if (!latestByDong[r.dong]) latestByDong[r.dong] = r.vote_count
-    })
+    const dongs = [...new Set(data.map(r => r.dong))]
 
     const sel = document.getElementById('deduct-dong-sel')
     sel.innerHTML = '<option value="">동 선택</option>'
-    Object.entries(latestByDong).forEach(([d, cnt]) => {
+    dongs.forEach(d => {
       const o = document.createElement('option')
-      o.value = d
-      o.textContent = `${d} (현재 ${formatNumber(cnt)}표)`
+      o.value = d; o.textContent = d
       sel.appendChild(o)
     })
 
@@ -343,14 +332,8 @@
     document.getElementById('btn-deduct-confirm').onclick = async () => {
       const selectedDong = sel.value
       if (!selectedDong) { alert('동을 선택하세요.'); return }
-      const currentVal = latestByDong[selectedDong]
-      const newTotal   = currentVal + votes
-      if (newTotal < 0) {
-        alert(`차감 후 음수가 됩니다. (현재 ${formatNumber(currentVal)}표)`)
-        return
-      }
       document.getElementById('deduct-modal').style.display = 'none'
-      await doInsert(name, phone, selectedDong, newTotal)
+      await doInsert(name, phone, selectedDong, votes)
     }
 
     document.getElementById('btn-deduct-cancel').onclick = () => {

@@ -466,23 +466,16 @@
 
     if (!data) return
 
-    // 담당자+동 기준 최신값 추출
-    const byReporterDong = {}
-    data.forEach(row => {
-      const key = `${row.reporter_phone}__${row.dong}`
-      if (!byReporterDong[key]) byReporterDong[key] = row
-    })
-
-    // 동별로 모든 담당자의 최신값 합산
+    // 동별 전체 제출값 누적 합산 (양수+음수 모두 포함)
     const latest = {}
-    Object.values(byReporterDong).forEach(row => {
+    data.forEach(row => {
       if (!latest[row.dong]) {
         latest[row.dong] = { ...row, vote_count: 0 }
       }
       latest[row.dong].vote_count += row.vote_count
-      // 마지막 제출자 이름·시간 갱신
+      // 가장 최근 제출자 이름·시간 갱신
       if (row.submitted_at > (latest[row.dong]._latestTime || '')) {
-        latest[row.dong].submitted_at = row.submitted_at
+        latest[row.dong].submitted_at  = row.submitted_at
         latest[row.dong].reporter_name = row.reporter_name
         latest[row.dong]._latestTime   = row.submitted_at
       }
