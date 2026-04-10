@@ -626,32 +626,25 @@
       return
     }
 
-    // 동별 최신값 (실시간 현황과 동일 기준)
-    const dongLatest = {}
-    data.forEach(row => {
-      if (!dongLatest[row.dong]) dongLatest[row.dong] = row
-    })
-
-    // 담당자별 집계
+    // 담당자별 누적 합산
     const reporters = {}
     data.forEach(row => {
       if (!reporters[row.reporter_phone]) {
         reporters[row.reporter_phone] = {
           name: row.reporter_name, phone: row.reporter_phone,
-          lastTime: row.submitted_at, lastVotes: {}, allDongs: new Set(), count: 0
+          lastTime: row.submitted_at, totalVotes: 0, allDongs: new Set(), count: 0
         }
       }
       const r = reporters[row.reporter_phone]
       r.allDongs.add(row.dong)
       r.count++
-      if (!r.lastVotes[row.dong]) r.lastVotes[row.dong] = row.vote_count
+      r.totalVotes += row.vote_count
+      if (row.submitted_at > r.lastTime) r.lastTime = row.submitted_at
     })
 
     // 단위 정보 비동기 추출
     for (const r of Object.values(reporters)) {
-      // 담당자가 제출한 동별 최신값 합산
-      r.totalVotes = Object.values(r.lastVotes).reduce((s, v) => s + v, 0)
-      r.dongs      = [...r.allDongs]
+      r.dongs = [...r.allDongs]
       r.units      = new Set()
       for (const dong of r.dongs) {
         const u = await getUnitByDong(camp.sigungu, dong)
