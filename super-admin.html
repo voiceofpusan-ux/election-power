@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>슈퍼 어드민</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      background: #0f172a; color: #e2e8f0; min-height: 100vh;
+    }
+    .center {
+      min-height: 100vh; display: flex;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .box {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 16px; padding: 40px 36px;
+      width: 100%; max-width: 480px;
+    }
+    .title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .sub   { font-size: 13px; color: #64748b; margin-bottom: 28px; }
+    label  { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+    input  {
+      width: 100%; height: 44px; background: #0f172a;
+      border: 1.5px solid #334155; border-radius: 8px;
+      color: #e2e8f0; font-size: 14px; padding: 0 12px; margin-bottom: 16px;
+    }
+    input:focus { outline: none; border-color: #3b82f6; }
+    .btn {
+      width: 100%; height: 44px; border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    .btn-primary { background: #1d4ed8; color: #fff; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: #334155; color: #cbd5e1; margin-top: 8px; }
+    .btn-secondary:hover { background: #475569; }
+    .error { color: #f87171; font-size: 13px; margin-top: 8px; display: none; }
+    .success { color: #4ade80; font-size: 13px; margin-top: 8px; display: none; }
+
+    /* 메인 */
+    header {
+      background: #1e293b; border-bottom: 1px solid #334155;
+      padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .h-title { font-size: 18px; font-weight: 700; color: #fff; }
+    .h-sub   { font-size: 12px; color: #64748b; }
+    .logout  {
+      padding: 6px 14px; border-radius: 8px; background: #334155;
+      color: #cbd5e1; border: none; cursor: pointer; font-size: 13px;
+    }
+    .content { max-width: 600px; margin: 32px auto; padding: 0 24px; }
+    .section { margin-bottom: 28px; }
+    .section-title {
+      font-size: 15px; font-weight: 700; color: #94a3b8;
+      margin-bottom: 14px; padding-bottom: 8px;
+      border-bottom: 1px solid #334155;
+    }
+
+    /* 정당 카드 */
+    .party-card {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 12px; padding: 20px 24px; margin-bottom: 12px;
+    }
+    .party-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .party-name { font-size: 16px; font-weight: 700; }
+    .party-name.minjoo { color: #60a5fa; }
+    .party-name.people { color: #f87171; }
+    .party-status {
+      font-size: 12px; padding: 3px 10px; border-radius: 4px; font-weight: 600;
+    }
+    .status-set   { background: #14532d; color: #4ade80; }
+    .status-unset { background: #450a0a; color: #f87171; }
+
+    .url-box {
+      background: #0f172a; border: 1px solid #334155;
+      border-radius: 8px; padding: 10px 14px;
+      font-size: 13px; color: #94a3b8; margin-bottom: 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .url-text { word-break: break-all; flex: 1; }
+    .copy-btn {
+      padding: 4px 10px; border-radius: 6px; background: #334155;
+      color: #cbd5e1; border: none; cursor: pointer; font-size: 12px;
+      white-space: nowrap;
+    }
+    .copy-btn:hover { background: #475569; }
+
+    .pw-row { display: flex; gap: 8px; }
+    .pw-row input { margin-bottom: 0; flex: 1; }
+    .pw-set-btn {
+      height: 44px; padding: 0 16px; border: none; border-radius: 8px;
+      background: #1d4ed8; color: #fff; font-size: 13px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+    }
+    .pw-set-btn:hover { background: #2563eb; }
+    .pw-msg { font-size: 12px; margin-top: 6px; display: none; }
+    .pw-msg.ok  { color: #4ade80; display: block; }
+    .pw-msg.err { color: #f87171; display: block; }
+
+    /* 슈퍼어드민 비밀번호 설정 안내 */
+    .info-box {
+      background: #172033; border: 1px solid #1d4ed8;
+      border-radius: 10px; padding: 14px 18px; margin-bottom: 24px;
+      font-size: 13px; color: #93c5fd; line-height: 1.7;
+    }
+    .info-box code {
+      background: #0f172a; padding: 2px 6px; border-radius: 4px;
+      font-family: monospace; color: #fbbf24;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="login-screen" class="center">
+  <div class="box">
+    <div class="title">🔐 슈퍼 어드민</div>
+    <div class="sub">시스템 관리자 전용 페이지</div>
+
+    <label>슈퍼어드민 비밀번호</label>
+    <input type="password" id="inp-pw" placeholder="비밀번호 입력"
+           onkeydown="if(event.key==='Enter') login()">
+    <button class="btn btn-primary" onclick="login()">로그인</button>
+    <div id="login-error" class="error"></div>
+  </div>
+</div>
+
+<!-- 메인 -->
+<div id="main" style="display:none;">
+  <header>
+    <div>
+      <div class="h-title">슈퍼 어드민</div>
+      <div class="h-sub">정당 어드민 관리</div>
+    </div>
+    <button class="logout" onclick="logout()">로그아웃</button>
+  </header>
+
+  <div class="content">
+
+    <!-- 안내 -->
+    <div id="unset-warning" class="info-box" style="display:none;">
+      ⚠️ 슈퍼어드민 비밀번호가 <code>config.js</code>에 설정되지 않았습니다.<br>
+      아래에서 해시를 생성한 뒤 <code>CONFIG.SUPER_ADMIN_PW_HASH</code>에 붙여넣고 배포하세요.
+    </div>
+
+    <!-- 정당별 설정 -->
+    <div class="section">
+      <div class="section-title">정당 어드민 비밀번호 설정</div>
+
+      <!-- 민주당 -->
+      <div class="party-card">
+        <div class="party-header">
+          <span class="party-name minjoo">🔵 민주당</span>
+          <span class="party-status" id="status-minjoo">확인 중...</span>
+        </div>
+        <div class="url-box">
+          <span class="url-text" id="url-minjoo"></span>
+          <button class="copy-btn" onclick="copyURL('minjoo')">복사</button>
+        </div>
+        <div class="pw-row">
+          <input type="password" id="pw-minjoo" placeholder="새 비밀번호 (4자 이상)">
+          <button class="pw-set-btn" onclick="setPartyPw('minjoo','민주당')">설정</button>
+        </div>
+        <div class="pw-msg" id="msg-minjoo"></div>
+      </div>
+
+      <!-- 국민의힘 -->
+      <div class="party-card">
+        <div class="party-header">
+          <span class="party-name people">🔴 국민의힘</span>
+          <span class="party-status" id="status-people">확인 중...</span>
+        </div>
+        <div class="url-box">
+          <span class="url-text" id="url-people"></span>
+          <button class="copy-btn" onclick="copyURL('people')">복사</button>
+        </div>
+        <div class="pw-row">
+          <input type="password" id="pw-people" placeholder="새 비밀번호 (4자 이상)">
+          <button class="pw-set-btn" onclick="setPartyPw('people','국민의힘')">설정</button>
+        </div>
+        <div class="pw-msg" id="msg-people"></div>
+      </div>
+    </div>
+
+    <!-- 슈퍼어드민 비밀번호 해시 생성 -->
+    <div class="section">
+      <div class="section-title">슈퍼어드민 비밀번호 해시 생성</div>
+      <div class="party-card">
+        <label>비밀번호 입력 → 해시 복사 → config.js에 붙여넣기 후 배포</label>
+        <div class="pw-row" style="margin-top:8px;">
+          <input type="password" id="hash-input" placeholder="슈퍼어드민 비밀번호">
+          <button class="pw-set-btn" onclick="generateHash()">해시 생성</button>
+        </div>
+        <div id="hash-result" style="display:none; margin-top:10px;">
+          <div class="url-box">
+            <span class="url-text" id="hash-value" style="font-family:monospace; font-size:12px;"></span>
+            <button class="copy-btn" onclick="copyHash()">복사</button>
+          </div>
+          <div style="font-size:12px; color:#64748b;">
+            config.js → <code style="color:#fbbf24;">SUPER_ADMIN_PW_HASH</code> 에 붙여넣고 배포하세요
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/utils.js"></script>
+<script>
+  // ── 로그인 ─────────────────────────────────────────
+  async function login() {
+    const pw    = document.getElementById('inp-pw').value
+    const errEl = document.getElementById('login-error')
+    errEl.style.display = 'none'
+
+    if (!pw) {
+      errEl.textContent = '비밀번호를 입력하세요.'
+      errEl.style.display = 'block'; return
+    }
+
+    // config.js에 해시 미설정 시 임시 통과 (초기 설정용)
+    if (!CONFIG.SUPER_ADMIN_PW_HASH) {
+      showMain(true)
+      return
+    }
+
+    const hash = await hashPassword(pw)
+    if (hash !== CONFIG.SUPER_ADMIN_PW_HASH) {
+      errEl.textContent = '비밀번호가 올바르지 않습니다.'
+      errEl.style.display = 'block'; return
+    }
+
+    sessionStorage.setItem('super_admin', '1')
+    showMain(false)
+  }
+
+  function logout() {
+    sessionStorage.removeItem('super_admin')
+    document.getElementById('main').style.display = 'none'
+    document.getElementById('login-screen').style.display = 'flex'
+    document.getElementById('inp-pw').value = ''
+  }
+
+  // ── 메인 표시 ─────────────────────────────────────
+  async function showMain(isUnset) {
+    document.getElementById('login-screen').style.display = 'none'
+    document.getElementById('main').style.display = 'block'
+
+    if (isUnset) {
+      document.getElementById('unset-warning').style.display = 'block'
+    }
+
+    // URL 세팅
+    const base = CONFIG.BASE_URL
+    document.getElementById('url-minjoo').textContent = `${base}/party-admin.html?party=minjoo`
+    document.getElementById('url-people').textContent = `${base}/party-admin.html?party=people`
+
+    // 정당 설정 상태 확인
+    await checkPartyStatus('minjoo')
+    await checkPartyStatus('people')
+  }
+
+  async function checkPartyStatus(party) {
+    const { data } = await db
+      .from('party_settings')
+      .select('password_hash')
+      .eq('party', party)
+      .maybeSingle()
+
+    const el = document.getElementById(`status-${party}`)
+    if (data && data.password_hash) {
+      el.textContent = '비밀번호 설정됨'
+      el.className   = 'party-status status-set'
+    } else {
+      el.textContent = '미설정'
+      el.className   = 'party-status status-unset'
+    }
+  }
+
+  // ── 정당 비밀번호 설정 ─────────────────────────────
+  async function setPartyPw(party, partyName) {
+    const pw  = document.getElementById(`pw-${party}`).value
+    const msg = document.getElementById(`msg-${party}`)
+    msg.className = 'pw-msg'
+
+    if (!pw || pw.length < 4) {
+      msg.textContent = '비밀번호를 4자 이상 입력하세요.'
+      msg.classList.add('err'); return
+    }
+
+    const hash = await hashPassword(pw)
+
+    // upsert (없으면 INSERT, 있으면 UPDATE)
+    const { error } = await db
+      .from('party_settings')
+      .upsert({ party, password_hash: hash }, { onConflict: 'party' })
+
+    if (error) {
+      msg.textContent = '오류: ' + error.message
+      msg.classList.add('err')
+    } else {
+      msg.textContent = `✅ ${partyName} 비밀번호가 설정됐습니다.`
+      msg.classList.add('ok')
+      document.getElementById(`pw-${party}`).value = ''
+      checkPartyStatus(party)
+    }
+  }
+
+  // ── URL 복사 ──────────────────────────────────────
+  function copyURL(party) {
+    const url = document.getElementById(`url-${party}`).textContent
+    navigator.clipboard.writeText(url).then(() => showToast('URL 복사됨'))
+  }
+
+  // ── 해시 생성 ─────────────────────────────────────
+  async function generateHash() {
+    const pw = document.getElementById('hash-input').value
+    if (!pw) { alert('비밀번호를 입력하세요.'); return }
+    const hash = await hashPassword(pw)
+    document.getElementById('hash-value').textContent = hash
+    document.getElementById('hash-result').style.display = 'block'
+  }
+
+  function copyHash() {
+    const hash = document.getElementById('hash-value').textContent
+    navigator.clipboard.writeText(hash).then(() => showToast('해시 복사됨'))
+  }
+
+  // ── 세션 복원 ─────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('super_admin') && CONFIG.SUPER_ADMIN_PW_HASH) {
+      showMain(false)
+    }
+  })
+</script>
+</body>
+</html>

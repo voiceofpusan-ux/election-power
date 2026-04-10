@@ -129,6 +129,45 @@
       border: none; cursor: pointer; font-size: 13px; font-weight: 600;
     }
     .logout-btn:hover { background: rgba(255,255,255,0.28); }
+    .change-pw-btn {
+      padding: 6px 14px; border-radius: 8px;
+      background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8);
+      border: 1px solid rgba(255,255,255,0.2);
+      cursor: pointer; font-size: 12px; font-weight: 600;
+    }
+    .change-pw-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* ── 비밀번호 변경 모달 ──────────────────────────────── */
+    .modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-bg.open { display: flex; }
+    .modal-box {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 16px; padding: 28px 32px;
+      width: 100%; max-width: 360px;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 20px; }
+    .modal-input {
+      width: 100%; height: 44px; background: #0f172a;
+      border: 1.5px solid #334155; border-radius: 8px;
+      color: #e2e8f0; font-size: 14px; padding: 0 12px; margin-bottom: 12px;
+    }
+    .modal-input:focus { outline: none; border-color: #3b82f6; }
+    .modal-btns { display: flex; gap: 8px; margin-top: 4px; }
+    .modal-btn {
+      flex: 1; height: 42px; border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    .modal-btn.primary { background: #1d4ed8; color: #fff; }
+    .modal-btn.primary:hover { background: #2563eb; }
+    .modal-btn.cancel { background: #334155; color: #cbd5e1; }
+    .modal-btn.cancel:hover { background: #475569; }
+    .modal-msg { font-size: 13px; margin-top: 8px; display: none; }
+    .modal-msg.ok  { color: #4ade80; display: block; }
+    .modal-msg.err { color: #f87171; display: block; }
 
     /* ── 요약 바 ──────────────────────────────────────── */
     .summary-bar {
@@ -295,8 +334,26 @@
         <span class="live-dot"></span> 실시간
       </div>
     </div>
-    <button class="logout-btn" onclick="logout()">로그아웃</button>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="change-pw-btn" onclick="openChangePw()">🔑 비밀번호 변경</button>
+      <button class="logout-btn" onclick="logout()">로그아웃</button>
+    </div>
   </header>
+
+  <!-- 비밀번호 변경 모달 -->
+  <div class="modal-bg" id="pw-modal">
+    <div class="modal-box">
+      <div class="modal-title">🔑 비밀번호 변경</div>
+      <input type="password" class="modal-input" id="pw-old" placeholder="현재 비밀번호">
+      <input type="password" class="modal-input" id="pw-new" placeholder="새 비밀번호 (4자 이상)">
+      <input type="password" class="modal-input" id="pw-new2" placeholder="새 비밀번호 확인">
+      <div class="modal-msg" id="pw-modal-msg"></div>
+      <div class="modal-btns">
+        <button class="modal-btn cancel" onclick="closeChangePw()">취소</button>
+        <button class="modal-btn primary" onclick="changePw()">변경</button>
+      </div>
+    </div>
+  </div>
 
   <div class="summary-bar">
     <div class="sum-item">
@@ -589,6 +646,61 @@
       document.getElementById(id)?.classList.toggle('active', t === type)
     })
     renderCamps()
+  }
+
+  // ── 비밀번호 변경 ──────────────────────────────────
+  function openChangePw() {
+    document.getElementById('pw-old').value   = ''
+    document.getElementById('pw-new').value   = ''
+    document.getElementById('pw-new2').value  = ''
+    const msg = document.getElementById('pw-modal-msg')
+    msg.className = 'modal-msg'
+    document.getElementById('pw-modal').classList.add('open')
+  }
+
+  function closeChangePw() {
+    document.getElementById('pw-modal').classList.remove('open')
+  }
+
+  async function changePw() {
+    const oldPw = document.getElementById('pw-old').value
+    const newPw = document.getElementById('pw-new').value
+    const newPw2= document.getElementById('pw-new2').value
+    const msg   = document.getElementById('pw-modal-msg')
+    msg.className = 'modal-msg'
+
+    if (!oldPw)           { msg.textContent = '현재 비밀번호를 입력하세요.';   msg.classList.add('err'); return }
+    if (newPw.length < 4) { msg.textContent = '새 비밀번호를 4자 이상 입력하세요.'; msg.classList.add('err'); return }
+    if (newPw !== newPw2) { msg.textContent = '새 비밀번호가 일치하지 않습니다.'; msg.classList.add('err'); return }
+
+    // 현재 비밀번호 확인
+    const oldHash = await hashPassword(oldPw)
+    const { data } = await db.from('party_settings')
+      .select('password_hash').eq('party', selectedParty).single()
+
+    if (!data || oldHash !== data.password_hash) {
+      msg.textContent = '현재 비밀번호가 올바르지 않습니다.'
+      msg.classList.add('err'); return
+    }
+
+    // 새 비밀번호 저장
+    const newHash = await hashPassword(newPw)
+    const { error } = await db.from('party_settings')
+      .update({ password_hash: newHash })
+      .eq('party', selectedParty)
+
+    if (error) {
+      msg.textContent = '오류: ' + error.message
+      msg.classList.add('err')
+    } else {
+      msg.textContent = '✅ 비밀번호가 변경됐습니다.'
+      msg.classList.add('ok')
+      // 세션 갱신
+      sessionStorage.setItem('party_admin', JSON.stringify({
+        party: selectedParty, name: selectedPartyName
+      }))
+      setTimeout(closeChangePw, 1500)
+    }
   }
 
   // ── 세션 복원 ──────────────────────────────────────
