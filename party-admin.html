@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>정당 어드민</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
+    body.minjoo { --party-primary: #004EA2; }
+    body.people { --party-primary: #C9151E; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
@@ -286,6 +289,32 @@
       text-align: center; padding: 60px 24px; color: #475569;
     }
 
+    /* ── 탭 ──────────────────────────────────────────── */
+    .tab-bar {
+      background: #1e293b; border-bottom: 1px solid #334155;
+      display: flex; padding: 0 28px; gap: 4px;
+    }
+    .tab-btn {
+      padding: 11px 20px; font-size: 13px; font-weight: 600;
+      color: #64748b; background: none; border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .tab-btn:hover { color: #cbd5e1; }
+    .tab-btn.active { color: #fff; border-bottom-color: var(--party-primary, #3b82f6); }
+
+    /* ── 추세 차트 ────────────────────────────────────── */
+    .trend-wrap { padding: 16px 28px; }
+    .trend-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .trend-title { font-size: 14px; font-weight: 700; color: #94a3b8; }
+    .trend-card {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 12px; padding: 20px;
+    }
+
     @media (max-width: 640px) {
       .camp-stats { gap: 12px; }
       .camp-rate-wrap { display: none; }
@@ -378,6 +407,14 @@
     <div class="refresh-info" id="refresh-info"></div>
   </div>
 
+  <!-- 탭 -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-camps" onclick="switchTab('camps')">캠프 현황</button>
+    <button class="tab-btn"        id="tab-trend" onclick="switchTab('trend')">시간별 추세</button>
+  </div>
+
+  <!-- 탭 1: 캠프 현황 -->
+  <div id="pane-camps">
   <div class="filter-bar">
     <span class="filter-lbl">정렬:</span>
     <button class="filter-btn active" id="sort-rate-asc"  onclick="setSort('rate-asc')">달성률 낮은순 ↑</button>
@@ -391,6 +428,23 @@
     <div class="spinner"></div><span>불러오는 중...</span>
   </div>
   <div class="camp-list" id="camp-list"></div>
+  </div><!-- /pane-camps -->
+
+  <!-- 탭 2: 시간별 추세 -->
+  <div id="pane-trend" style="display:none;">
+    <div class="trend-wrap">
+      <div class="trend-header">
+        <span class="trend-title">시간대별 누적 투표수 추세</span>
+        <span id="trend-info" style="font-size:12px; color:#475569;"></span>
+      </div>
+      <div class="trend-card">
+        <canvas id="trend-chart" height="100"></canvas>
+      </div>
+      <div style="margin-top:12px; font-size:12px; color:#475569; text-align:center;">
+        흰색 굵은선 = 전체 합계 &nbsp;|&nbsp; 나머지 = 캠프별
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -404,6 +458,10 @@
   let campData          = []
   let currentSort       = 'rate-asc'
   let refreshTimer      = null
+  let allSubsRaw        = []
+  let allCampsRaw       = []
+  let trendChart        = null
+  let currentTab        = 'camps'
 
   // ── 정당 선택 ──────────────────────────────────────
   function selectParty(code, name) {
@@ -468,6 +526,7 @@
     document.getElementById('login-screen').style.display = 'none'
     document.getElementById('main').style.display = 'block'
 
+    document.body.className = selectedParty
     const header = document.getElementById('main-header')
     header.className = `header ${selectedParty}`
     document.getElementById('header-title').textContent =
@@ -511,6 +570,9 @@
       subsByCamp[row.camp_id].push(row)
     })
 
+    allCampsRaw = camps
+    allSubsRaw  = subs || []
+
     campData = camps.map(camp => {
       const rows     = subsByCamp[camp.id] || []
       const total    = rows.reduce((s, r) => s + r.vote_count, 0)
@@ -526,6 +588,7 @@
 
     renderSummary()
     renderCamps()
+    if (currentTab === 'trend') renderTrendChart()
 
     document.getElementById('camp-loading').style.display = 'none'
     document.getElementById('refresh-info').textContent =
@@ -701,6 +764,138 @@
       }))
       setTimeout(closeChangePw, 1500)
     }
+  }
+
+  // ── 탭 전환 ───────────────────────────────────────
+  function switchTab(tab) {
+    currentTab = tab
+    document.getElementById('tab-camps').classList.toggle('active', tab === 'camps')
+    document.getElementById('tab-trend').classList.toggle('active', tab === 'trend')
+    document.getElementById('pane-camps').style.display = tab === 'camps' ? 'block' : 'none'
+    document.getElementById('pane-trend').style.display = tab === 'trend' ? 'block' : 'none'
+    if (tab === 'trend') renderTrendChart()
+  }
+
+  // ── 시간별 추세 차트 ──────────────────────────────
+  function renderTrendChart() {
+    if (!allSubsRaw.length) {
+      document.getElementById('trend-info').textContent = '데이터가 없습니다.'
+      return
+    }
+
+    const times = allSubsRaw.map(s => new Date(s.submitted_at).getTime())
+    const minT  = Math.min(...times)
+    const maxT  = Math.max(...times)
+
+    // 시간 버킷 생성 (1시간 단위)
+    const startH = new Date(minT); startH.setMinutes(0, 0, 0)
+    const endH   = new Date(maxT); endH.setHours(endH.getHours() + 1, 0, 0, 0)
+
+    const bucketStarts = []
+    const labels       = []
+    const t = new Date(startH)
+    while (t < endH) {
+      bucketStarts.push(t.getTime())
+      labels.push(`${String(t.getHours()).padStart(2,'0')}:00`)
+      t.setHours(t.getHours() + 1)
+    }
+
+    function getBucketIdx(submittedAt) {
+      const ts = new Date(submittedAt).getTime()
+      for (let i = bucketStarts.length - 1; i >= 0; i--) {
+        if (ts >= bucketStarts[i]) return i
+      }
+      return 0
+    }
+
+    function makeCumulative(subs) {
+      const buckets = new Array(bucketStarts.length).fill(0)
+      subs.forEach(s => { buckets[getBucketIdx(s.submitted_at)] += s.vote_count })
+      return buckets.reduce((acc, v) => {
+        acc.push((acc.length ? acc[acc.length - 1] : 0) + v)
+        return acc
+      }, [])
+    }
+
+    const colors = [
+      '#60a5fa','#4ade80','#fbbf24','#f87171','#c084fc',
+      '#34d399','#fb923c','#a78bfa','#38bdf8','#f472b6'
+    ]
+
+    const datasets = []
+
+    // 전체 합계 (흰색 굵은선)
+    datasets.push({
+      label: '전체 합계',
+      data: makeCumulative(allSubsRaw),
+      borderColor: '#ffffff',
+      backgroundColor: 'rgba(255,255,255,0.05)',
+      borderWidth: 3,
+      fill: false,
+      tension: 0.3,
+      pointRadius: 4,
+      order: 0
+    })
+
+    // 캠프별
+    allCampsRaw.forEach((camp, i) => {
+      const campSubs = allSubsRaw.filter(s => s.camp_id === camp.id)
+      if (!campSubs.length) return
+      datasets.push({
+        label: camp.district,
+        data: makeCumulative(campSubs),
+        borderColor: colors[i % colors.length],
+        borderWidth: 1.5,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 2,
+        order: i + 1
+      })
+    })
+
+    document.getElementById('trend-info').textContent =
+      `${labels[0]} ~ ${labels[labels.length - 1]} · ${allCampsRaw.length}개 캠프`
+
+    const ctx = document.getElementById('trend-chart').getContext('2d')
+    if (trendChart) trendChart.destroy()
+
+    trendChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 }
+          },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            borderColor: '#334155',
+            borderWidth: 1,
+            titleColor: '#e2e8f0',
+            bodyColor: '#94a3b8',
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${formatNumber(ctx.parsed.y)}표`
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#64748b', font: { size: 11 } },
+            grid:  { color: '#1e293b' }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: '#64748b', font: { size: 11 },
+              callback: v => formatNumber(v)
+            },
+            grid: { color: '#334155' }
+          }
+        }
+      }
+    })
   }
 
   // ── 세션 복원 ──────────────────────────────────────
