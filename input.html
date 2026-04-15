@@ -429,10 +429,21 @@
     })
 
     // 투표수 내림차순 정렬
-    const sorted = Object.values(reporters).sort((a, b) => b.votes - a.votes)
+    let sorted = Object.values(reporters).sort((a, b) => b.votes - a.votes)
+
+    // 대시보드에서 설정한 순위 제한 적용
+    const limit = camp.reporter_limit || 0
+    if (limit > 0) sorted = sorted.slice(0, limit)
 
     const list = document.getElementById('ranking-list')
     list.innerHTML = ''
+
+    if (limit > 0) {
+      const info = document.createElement('div')
+      info.style.cssText = 'text-align:center; padding:8px 20px 0; font-size:12px; color:#888;'
+      info.textContent = `상위 ${limit}명만 표시됩니다.`
+      list.appendChild(info)
+    }
 
     sorted.forEach((r, i) => {
       const isMe  = r.phone === myPhone

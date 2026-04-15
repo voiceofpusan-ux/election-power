@@ -156,6 +156,12 @@
       border: 1px solid #334155; background:#1e293b; color:#94a3b8; cursor:pointer;
     }
     .sort-btn.active { background: var(--party-primary,#3b82f6); color:#fff; border-color:transparent; }
+    .limit-sel {
+      margin-left: auto;
+      background: #1e293b; color: #94a3b8;
+      border: 1px solid #334155; border-radius: 6px;
+      padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
     .chart-card {
       background:#1e293b; border:1px solid #334155;
       border-radius:12px; padding:16px; margin-bottom:12px;
@@ -336,6 +342,20 @@
         <span class="sort-lbl">정렬:</span>
         <button class="sort-btn active" id="sort-desc" onclick="setReporterSort('desc')">높은순 ↓</button>
         <button class="sort-btn"        id="sort-asc"  onclick="setReporterSort('asc')">낮은순 ↑</button>
+        <span class="sort-lbl" style="margin-left:auto;">현장 순위 표시:</span>
+        <select id="limit-sel" class="limit-sel" onchange="setReporterLimit(this.value)">
+          <option value="0">전체</option>
+          <option value="1">1명</option>
+          <option value="2">2명</option>
+          <option value="3">3명</option>
+          <option value="4">4명</option>
+          <option value="5">5명</option>
+          <option value="6">6명</option>
+          <option value="7">7명</option>
+          <option value="8">8명</option>
+          <option value="9">9명</option>
+          <option value="10">10명</option>
+        </select>
       </div>
       <!-- 테이블 (가로 막대 행 안에 포함) -->
       <table class="reporter-table">
@@ -383,6 +403,7 @@
       if (error || !data) return showError('캠프를 찾을 수 없습니다.')
 
       camp = data
+      document.getElementById('limit-sel').value = camp.reporter_limit || 0
       document.body.classList.add(`party-${camp.party}`)
       document.title = `${camp.district} ${camp.party_name} 대시보드`
       document.getElementById('header-district').textContent =
@@ -654,6 +675,14 @@
 
     reporterCache = Object.values(reporters)
     applyReporterSort()
+  }
+
+  async function setReporterLimit(val) {
+    const limit = parseInt(val, 10)
+    const { error } = await db.from('camps').update({ reporter_limit: limit }).eq('id', camp.id)
+    if (error) { showToast('저장 실패: ' + error.message, 'error'); return }
+    camp.reporter_limit = limit
+    showToast(limit === 0 ? '현장 순위: 전체 표시로 설정됨' : `현장 순위: 상위 ${limit}명만 표시로 설정됨`)
   }
 
   function setReporterSort(order) {
