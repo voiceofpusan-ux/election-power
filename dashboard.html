@@ -1004,7 +1004,9 @@
     })
 
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [8, 16, 12, 14, 10, 14, 12].map(wch => ({ wch }))
+    ws['!cols']       = [8, 16, 12, 14, 10, 14, 12].map(wch => ({ wch }))
+    ws['!freeze']     = { xSplit: 0, ySplit: 1 }
+    ws['!autofilter'] = { ref: ws['!ref'] }
     return ws
   }
 
@@ -1045,7 +1047,9 @@
       ]))
 
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [12, 16, 8, 32, 12, 14, 10, 10, 12].map(wch => ({ wch }))
+    ws['!cols']       = [12, 16, 8, 32, 12, 14, 10, 10, 12].map(wch => ({ wch }))
+    ws['!freeze']     = { xSplit: 0, ySplit: 1 }
+    ws['!autofilter'] = { ref: ws['!ref'] }
     return ws
   }
 
@@ -1087,7 +1091,9 @@
       ]))
 
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [12, 8, 32, 12, 14, 10, 10, 12].map(wch => ({ wch }))
+    ws['!cols']       = [12, 8, 32, 12, 14, 10, 10, 12].map(wch => ({ wch }))
+    ws['!freeze']     = { xSplit: 0, ySplit: 1 }
+    ws['!autofilter'] = { ref: ws['!ref'] }
     return ws
   }
 
