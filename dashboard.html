@@ -318,6 +318,7 @@
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('realtime')">실시간 현황</button>
     <button class="tab-btn"        onclick="switchTab('reporter')">담당자별 통계</button>
+    <button class="tab-btn"        onclick="switchTab('fieldworker')">투표현황보고자 통계</button>
   </div>
 
   <!-- 탭 1: 실시간 현황 -->
@@ -337,7 +338,6 @@
   <!-- 탭 2: 담당자별 통계 -->
   <div class="tab-pane" id="pane-reporter">
     <div class="reporter-wrap">
-      <!-- 정렬 선택 -->
       <div class="sort-bar">
         <span class="sort-lbl">정렬:</span>
         <button class="sort-btn active" id="sort-desc" onclick="setReporterSort('desc')">높은순 ↓</button>
@@ -357,7 +357,6 @@
           <option value="10">10명</option>
         </select>
       </div>
-      <!-- 테이블 (가로 막대 행 안에 포함) -->
       <table class="reporter-table">
         <thead>
           <tr>
@@ -371,6 +370,32 @@
           </tr>
         </thead>
         <tbody id="reporter-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 탭 3: 투표현황보고자 통계 -->
+  <div class="tab-pane" id="pane-fieldworker">
+    <div class="reporter-wrap">
+      <div class="sort-bar">
+        <span class="sort-lbl">정렬:</span>
+        <button class="sort-btn active" id="fw-sort-desc" onclick="setFieldWorkerSort('desc')">높은순 ↓</button>
+        <button class="sort-btn"        id="fw-sort-asc"  onclick="setFieldWorkerSort('asc')">낮은순 ↑</button>
+      </div>
+      <table class="reporter-table">
+        <thead>
+          <tr>
+            <th>보고자</th>
+            <th>단위</th>
+            <th>담당 동</th>
+            <th>당원투표</th>
+            <th>일반(안심번호)</th>
+            <th>합계</th>
+            <th>보고 횟수</th>
+            <th>마지막 보고</th>
+          </tr>
+        </thead>
+        <tbody id="fieldworker-body"></tbody>
       </table>
     </div>
   </div>
@@ -390,8 +415,10 @@
   let realtimeCh      = null
   let closingsCh      = null
   let closingsMap     = {}
-  let reporterCache   = []
-  let reporterSort    = 'desc'
+  let reporterCache     = []
+  let reporterSort      = 'desc'
+  let fieldWorkerCache  = []
+  let fieldWorkerSort   = 'desc'
 
   // ── 초기화 ──────────────────────────────────────────
   async function init() {
@@ -623,14 +650,15 @@
 
   // ── 탭 전환 ─────────────────────────────────────────
   function switchTab(tab) {
+    const names = ['realtime', 'reporter', 'fieldworker']
     document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-      const names = ['realtime', 'reporter']
       btn.classList.toggle('active', names[i] === tab)
     })
     document.querySelectorAll('.tab-pane').forEach(pane => {
       pane.classList.toggle('active', pane.id === `pane-${tab}`)
     })
-    if (tab === 'reporter') renderReporterStats()
+    if (tab === 'reporter')    renderReporterStats()
+    if (tab === 'fieldworker') renderFieldWorkerStats()
   }
 
   // ── 담당자별 통계 ────────────────────────────────────
@@ -732,6 +760,105 @@
         <td class="r-cnt">${r.count}회</td>
         <td class="r-time">${formatTime(r.lastTime)}</td>
         <td><button class="call-btn" onclick="openCallModal('${r.name}','${r.phone}')">📞 전화</button></td>
+      `
+      tbody.appendChild(tr)
+    })
+  }
+
+  // ── 투표현황보고자 통계 ──────────────────────────────
+  async function renderFieldWorkerStats() {
+    const { data } = await db
+      .from('submissions')
+      .select('field_worker_name, dong, vote_count, vote_type, submitted_at')
+      .eq('camp_id', camp.id)
+      .order('submitted_at', { ascending: false })
+
+    if (!data || data.length === 0) {
+      document.getElementById('fieldworker-body').innerHTML =
+        '<tr><td colspan="8" style="text-align:center;color:#64748b;padding:32px;">제출 데이터가 없습니다.</td></tr>'
+      return
+    }
+
+    const workers = {}
+    data.forEach(row => {
+      const key = row.field_worker_name || '(미입력)'
+      if (!workers[key]) {
+        workers[key] = {
+          name: key, lastTime: row.submitted_at,
+          totalVotes: 0, dangVotes: 0, anshimVotes: 0,
+          allDongs: new Set(), count: 0
+        }
+      }
+      const w = workers[key]
+      w.count++
+      w.totalVotes += row.vote_count
+      if (row.vote_type === '안심번호') w.anshimVotes += row.vote_count
+      else                              w.dangVotes   += row.vote_count
+      if (row.dong) w.allDongs.add(row.dong)
+      if (row.submitted_at > w.lastTime) w.lastTime = row.submitted_at
+    })
+
+    for (const w of Object.values(workers)) {
+      w.dongs = [...w.allDongs]
+      w.units = new Set()
+      for (const dong of w.dongs) {
+        const u = await getUnitByDong(camp.sigungu, dong)
+        if (u) w.units.add(u)
+      }
+    }
+
+    fieldWorkerCache = Object.values(workers)
+    applyFieldWorkerSort()
+  }
+
+  function setFieldWorkerSort(order) {
+    fieldWorkerSort = order
+    document.getElementById('fw-sort-desc').classList.toggle('active', order === 'desc')
+    document.getElementById('fw-sort-asc').classList.toggle('active', order === 'asc')
+    applyFieldWorkerSort()
+  }
+
+  function applyFieldWorkerSort() {
+    const sorted = [...fieldWorkerCache].sort((a, b) =>
+      fieldWorkerSort === 'desc'
+        ? b.totalVotes - a.totalVotes
+        : a.totalVotes - b.totalVotes
+    )
+    renderFieldWorkerTable(sorted)
+  }
+
+  function renderFieldWorkerTable(sorted) {
+    const maxVotes = Math.max(...sorted.map(w => w.totalVotes), 1)
+    const tbody    = document.getElementById('fieldworker-body')
+    tbody.innerHTML = ''
+
+    sorted.forEach(w => {
+      const pct      = Math.max(0, Math.round(w.totalVotes / maxVotes * 100))
+      const barColor = w.totalVotes < 0 ? '#ef4444' :
+                       pct >= 80        ? '#10b981' : '#3b82f6'
+
+      const unitBadges = [...w.units].map(u =>
+        `<span class="unit-badge">${u}</span>`).join('')
+      const dongTags = w.dongs.map(d =>
+        `<span class="dong-tag">${d}</span>`).join('')
+
+      const tr = document.createElement('tr')
+      tr.innerHTML = `
+        <td class="r-name">${w.name}</td>
+        <td>${unitBadges || '<span style="color:#475569">-</span>'}</td>
+        <td><div class="dong-tags">${dongTags}</div></td>
+        <td style="color:#fbbf24; font-weight:700;">${formatNumber(w.dangVotes)}표</td>
+        <td style="color:#34d399; font-weight:700;">${formatNumber(w.anshimVotes)}표</td>
+        <td>
+          <div style="display:flex; align-items:center; gap:8px; min-width:160px;">
+            <div style="flex:1; background:#334155; border-radius:4px; height:10px; overflow:hidden;">
+              <div style="width:${pct}%; height:100%; background:${barColor}; border-radius:4px; transition:width 0.4s;"></div>
+            </div>
+            <span class="r-votes" style="white-space:nowrap;">${formatNumber(w.totalVotes)}표</span>
+          </div>
+        </td>
+        <td class="r-cnt">${w.count}회</td>
+        <td class="r-time">${formatTime(w.lastTime)}</td>
       `
       tbody.appendChild(tr)
     })
