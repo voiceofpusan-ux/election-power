@@ -1018,8 +1018,10 @@
     // 동별 누적합
     const latest = {}
     data.forEach(row => {
-      if (!latest[row.dong]) latest[row.dong] = { ...row, vote_count: 0 }
+      if (!latest[row.dong]) latest[row.dong] = { ...row, vote_count: 0, dang_count: 0, anshim_count: 0 }
       latest[row.dong].vote_count += row.vote_count
+      if (row.vote_type === '안심번호') latest[row.dong].anshim_count += row.vote_count
+      else                              latest[row.dong].dang_count   += row.vote_count
       if (row.submitted_at > (latest[row.dong]._t || '')) {
         latest[row.dong].submitted_at  = row.submitted_at
         latest[row.dong].reporter_name = row.reporter_name
