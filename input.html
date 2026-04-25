@@ -56,6 +56,29 @@
     </div>
 
     <div class="form-group">
+      <label>현장실무자 이름</label>
+      <input type="text" id="inp-field-worker" placeholder="현장에서 보고한 실무자 이름" maxlength="20">
+    </div>
+
+    <div class="form-group">
+      <label>투표 유형</label>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button type="button" id="btn-type-dang"
+                onclick="selectVoteType('당원')"
+                style="flex:1; height:48px; border-radius:10px; border:2px solid #004EA2;
+                       background:#004EA2; color:#fff; font-size:14px; font-weight:700; cursor:pointer;">
+          당원투표
+        </button>
+        <button type="button" id="btn-type-anshim"
+                onclick="selectVoteType('안심번호')"
+                style="flex:1; height:48px; border-radius:10px; border:2px solid #e0e0e0;
+                       background:#fff; color:#888; font-size:14px; font-weight:700; cursor:pointer;">
+          일반(안심번호)
+        </button>
+      </div>
+    </div>
+
+    <div class="form-group">
       <label>투표자수</label>
       <input type="number" id="inp-votes" placeholder="0"
              inputmode="numeric" max="99999">
@@ -140,6 +163,21 @@
   let camp = null
   let lastVoteCount = null
   let currentClosing = null
+  let voteType = '당원'
+
+  function selectVoteType(type) {
+    voteType = type
+    const primary = camp?.party === 'people' ? '#C9151E' : '#004EA2'
+    const btnDang   = document.getElementById('btn-type-dang')
+    const btnAnshim = document.getElementById('btn-type-anshim')
+    if (type === '당원') {
+      btnDang.style.cssText   = `flex:1; height:48px; border-radius:10px; border:2px solid ${primary}; background:${primary}; color:#fff; font-size:14px; font-weight:700; cursor:pointer;`
+      btnAnshim.style.cssText = `flex:1; height:48px; border-radius:10px; border:2px solid #e0e0e0; background:#fff; color:#888; font-size:14px; font-weight:700; cursor:pointer;`
+    } else {
+      btnAnshim.style.cssText = `flex:1; height:48px; border-radius:10px; border:2px solid ${primary}; background:${primary}; color:#fff; font-size:14px; font-weight:700; cursor:pointer;`
+      btnDang.style.cssText   = `flex:1; height:48px; border-radius:10px; border:2px solid #e0e0e0; background:#fff; color:#888; font-size:14px; font-weight:700; cursor:pointer;`
+    }
+  }
 
   // ── 초기화 ────────────────────────────────────────
   async function init() {
@@ -153,6 +191,7 @@
 
       camp = data
       renderCamp()
+      selectVoteType('당원')   // 정당 색상 적용 후 기본값 세팅
       await loadDongOptions()
       restoreInputs()
       await loadMyHistory()
@@ -224,7 +263,7 @@
 
     const { data } = await db
       .from('submissions')
-      .select('dong, vote_count, submitted_at')
+      .select('dong, vote_count, vote_type, field_worker_name, submitted_at')
       .eq('camp_id', camp.id)
       .eq('reporter_phone', phone)
       .order('submitted_at', { ascending: false })
@@ -237,9 +276,15 @@
     data.forEach(row => {
       const li = document.createElement('li')
       li.className = 'history-item'
+      const typeTag = row.vote_type === '안심번호'
+        ? `<span style="font-size:10px; background:#e0f2fe; color:#0369a1; border-radius:4px; padding:1px 5px; margin-right:4px;">안심번호</span>`
+        : `<span style="font-size:10px; background:#fef3c7; color:#92400e; border-radius:4px; padding:1px 5px; margin-right:4px;">당원</span>`
+      const workerLabel = row.field_worker_name
+        ? `<span style="font-size:11px; color:#555;"> · ${row.field_worker_name}</span>`
+        : ''
       li.innerHTML = `
         <span class="history-time">${formatTime(row.submitted_at)}</span>
-        <span>${row.dong}</span>
+        <span>${typeTag}${row.dong}${workerLabel}</span>
         <span class="history-votes">${formatNumber(row.vote_count)}표</span>
       `
       list.appendChild(li)
@@ -252,11 +297,12 @@
   async function submitVotes() {
     hideMsg()
 
-    const name     = document.getElementById('inp-name').value.trim()
-    const phone    = document.getElementById('inp-phone').value.trim()
-    const dong     = document.getElementById('inp-dong').value
-    const votesRaw = document.getElementById('inp-votes').value
-    const votes    = parseInt(votesRaw, 10)
+    const name        = document.getElementById('inp-name').value.trim()
+    const phone       = document.getElementById('inp-phone').value.trim()
+    const dong        = document.getElementById('inp-dong').value
+    const fieldWorker = document.getElementById('inp-field-worker').value.trim()
+    const votesRaw    = document.getElementById('inp-votes').value
+    const votes       = parseInt(votesRaw, 10)
 
     // 유효성 검사
     if (!name || name.length < 2)
@@ -265,6 +311,8 @@
       return showFormError('전화번호를 확인하세요. (010-XXXX-XXXX)')
     if (!dong)
       return showFormError('담당 동을 선택하세요.')
+    if (!fieldWorker)
+      return showFormError('현장실무자 이름을 입력하세요.')
     if (isNaN(votes) || votes === 0)
       return showFormError('투표자수를 입력하세요.')
     if (votes < 0)
@@ -274,11 +322,11 @@
     const blocked = await checkDuplicatePhone()
     if (blocked) return
 
-    await doInsert(name, phone, dong, votes)
+    await doInsert(name, phone, dong, votes, voteType, fieldWorker)
   }
 
   // ── 음수 차감 처리 ────────────────────────────────
-  async function handleNegativeSubmit(name, phone, dong, votes) {
+  async function handleNegativeSubmit(name, phone, dong, votes, fieldWorker) {
     // 해당 동에 본인 제출 이력 확인
     const { data } = await db
       .from('submissions')
@@ -290,15 +338,15 @@
 
     if (data && data.length > 0) {
       // 같은 동 이력 있음 → 음수값 그대로 제출 (합산에서 차감됨)
-      await doInsert(name, phone, dong, votes)
+      await doInsert(name, phone, dong, votes, voteType, fieldWorker)
     } else {
       // 같은 동 이력 없음 → 어느 동에서 차감할지 물어봄
-      await openDeductModal(name, phone, votes)
+      await openDeductModal(name, phone, votes, fieldWorker)
     }
   }
 
   // ── 차감 동 선택 모달 ─────────────────────────────
-  async function openDeductModal(name, phone, votes) {
+  async function openDeductModal(name, phone, votes, fieldWorker) {
     // 본인이 제출한 동 목록 조회
     const { data } = await db
       .from('submissions')
@@ -329,7 +377,7 @@
       const selectedDong = sel.value
       if (!selectedDong) { alert('동을 선택하세요.'); return }
       document.getElementById('deduct-modal').style.display = 'none'
-      await doInsert(name, phone, selectedDong, votes)
+      await doInsert(name, phone, selectedDong, votes, voteType, fieldWorker)
     }
 
     document.getElementById('btn-deduct-cancel').onclick = () => {
@@ -338,7 +386,7 @@
   }
 
   // ── 실제 INSERT ───────────────────────────────────
-  async function doInsert(name, phone, dong, votes) {
+  async function doInsert(name, phone, dong, votes, type = '당원', fieldWorker = '') {
     const btn = document.getElementById('btn-submit')
     btn.disabled = true
     btn.textContent = '제출 중...'
@@ -346,12 +394,14 @@
     try {
       const ip = await getClientIP()
       const { error } = await db.from('submissions').insert({
-        camp_id:        camp.id,
-        reporter_name:  name,
-        reporter_phone: phone,
+        camp_id:           camp.id,
+        reporter_name:     name,
+        reporter_phone:    phone,
         dong,
-        vote_count:     votes,
-        ip_address:     ip
+        vote_count:        votes,
+        vote_type:         type,
+        field_worker_name: fieldWorker,
+        ip_address:        ip
       })
 
       if (error) throw error
@@ -363,6 +413,7 @@
       const label = votes < 0 ? `${dong} ${formatNumber(votes)}표 차감 완료!` : `${dong} ${formatNumber(votes)}표 제출 완료!`
       showFormSuccess(label)
       document.getElementById('inp-votes').value = ''
+      document.getElementById('inp-field-worker').value = ''  // 다음 입력을 위해 초기화
       await loadMyHistory()
 
     } catch (e) {
