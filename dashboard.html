@@ -584,15 +584,19 @@
 
   // ── 단위 차트 ────────────────────────────────────────
   function renderUnitChart(unit, dongs, latest) {
-    const key    = unit || 'all'
-    const votes  = dongs.map(d => latest[d]?.vote_count || 0)
+    const key         = unit || 'all'
+    const totalVotes  = dongs.map(d => latest[d]?.vote_count  || 0)
+    const dangVotes   = dongs.map(d => latest[d]?.dang_count  || 0)
+    const anshimVotes = dongs.map(d => latest[d]?.anshim_count || 0)
+
     const perDongTarget = camp.target_votes > 0
       ? camp.target_votes / (allDongs.length || 1) : 0
 
-    const colors = votes.map(v =>
-      v === 0                       ? '#ef4444' :
-      perDongTarget && v >= perDongTarget * 0.8 ? '#10b981' :
-                                      '#3b82f6'
+    // 당원 bar 색상: 합계 기준으로 미보고=빨강, 달성=초록, 진행=파랑
+    const dangColors = totalVotes.map(v =>
+      v === 0                                        ? '#ef4444' :
+      perDongTarget && v >= perDongTarget * 0.8      ? '#10b981' :
+                                                       '#3b82f6'
     )
 
     const ctx = document.getElementById(`chart-${key}`).getContext('2d')
@@ -602,11 +606,29 @@
       type: 'bar',
       data: {
         labels: dongs,
-        datasets: [{ data: votes, backgroundColor: colors, borderRadius: 4 }]
+        datasets: [
+          {
+            label: '당원',
+            data: dangVotes,
+            backgroundColor: dangColors,
+            borderRadius: 4
+          },
+          {
+            label: '안심번호',
+            data: anshimVotes,
+            backgroundColor: '#f97316',
+            borderRadius: 4
+          }
+        ]
       },
       options: {
         responsive: true,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 }
+          }
+        },
         scales: {
           x: {
             ticks: { color: '#94a3b8', font: { size: 10 } },
