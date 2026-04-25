@@ -366,7 +366,9 @@
             <th>이름</th>
             <th>단위</th>
             <th>담당 동</th>
-            <th>누적 투표수</th>
+            <th style="color:#fbbf24;">당원</th>
+            <th style="color:#34d399;">안심번호</th>
+            <th>합계</th>
             <th>제출 횟수</th>
             <th>마지막 보고</th>
             <th>전화</th>
@@ -497,9 +499,11 @@
         <thead>
           <tr>
             <th>동명</th>
-            <th>투표수</th>
-            <th>책임자</th>
-            <th>보고 시각</th>
+            <th style="color:#fbbf24;">당원</th>
+            <th style="color:#34d399;">안심번호</th>
+            <th>합계</th>
+            <th>보고자</th>
+            <th>시각</th>
           </tr>
         </thead>
         <tbody id="tbody-${key}"></tbody>
@@ -512,7 +516,7 @@
   async function refreshDashboard() {
     const { data } = await db
       .from('submissions')
-      .select('dong, reporter_name, reporter_phone, vote_count, submitted_at')
+      .select('dong, reporter_name, reporter_phone, vote_count, vote_type, submitted_at')
       .eq('camp_id', camp.id)
       .order('submitted_at', { ascending: false })
 
@@ -522,9 +526,11 @@
     const latest = {}
     data.forEach(row => {
       if (!latest[row.dong]) {
-        latest[row.dong] = { ...row, vote_count: 0 }
+        latest[row.dong] = { ...row, vote_count: 0, dang_count: 0, anshim_count: 0 }
       }
       latest[row.dong].vote_count += row.vote_count
+      if (row.vote_type === '안심번호') latest[row.dong].anshim_count += row.vote_count
+      else                              latest[row.dong].dang_count   += row.vote_count
       // 가장 최근 제출자 이름·시간 갱신
       if (row.submitted_at > (latest[row.dong]._latestTime || '')) {
         latest[row.dong].submitted_at  = row.submitted_at
@@ -634,6 +640,8 @@
       if (!r) tr.className = 'unreported'
       tr.innerHTML = `
         <td class="dong-name">${dong}${isClosed ? ' <span style="color:#4ade80;font-size:11px;">✅마감</span>' : ''}</td>
+        <td style="color:#fbbf24; font-weight:600;">${r ? formatNumber(r.dang_count) : '-'}</td>
+        <td style="color:#34d399; font-weight:600;">${r ? formatNumber(r.anshim_count) : '-'}</td>
         <td class="votes">${r ? formatNumber(r.vote_count) + '표' : '미보고'}</td>
         <td>${r ? r.reporter_name : '-'}</td>
         <td class="time">${r ? formatTime(r.submitted_at) : '-'}</td>
@@ -669,13 +677,13 @@
   async function renderReporterStats() {
     const { data } = await db
       .from('submissions')
-      .select('reporter_name, reporter_phone, dong, vote_count, submitted_at')
+      .select('reporter_name, reporter_phone, dong, vote_count, vote_type, submitted_at')
       .eq('camp_id', camp.id)
       .order('submitted_at', { ascending: false })
 
     if (!data || data.length === 0) {
       document.getElementById('reporter-body').innerHTML =
-        '<tr><td colspan="7" style="text-align:center;color:#64748b;padding:32px;">제출 데이터가 없습니다.</td></tr>'
+        '<tr><td colspan="9" style="text-align:center;color:#64748b;padding:32px;">제출 데이터가 없습니다.</td></tr>'
       return
     }
 
@@ -685,13 +693,16 @@
       if (!reporters[row.reporter_phone]) {
         reporters[row.reporter_phone] = {
           name: row.reporter_name, phone: row.reporter_phone,
-          lastTime: row.submitted_at, totalVotes: 0, allDongs: new Set(), count: 0
+          lastTime: row.submitted_at, totalVotes: 0, dangVotes: 0, anshimVotes: 0,
+          allDongs: new Set(), count: 0
         }
       }
       const r = reporters[row.reporter_phone]
       r.allDongs.add(row.dong)
       r.count++
       r.totalVotes += row.vote_count
+      if (row.vote_type === '안심번호') r.anshimVotes += row.vote_count
+      else                              r.dangVotes   += row.vote_count
       if (row.submitted_at > r.lastTime) r.lastTime = row.submitted_at
     })
 
@@ -753,8 +764,10 @@
         <td class="r-name">${r.name}</td>
         <td>${unitBadges || '<span style="color:#475569">-</span>'}</td>
         <td><div class="dong-tags">${dongTags}</div></td>
+        <td style="color:#fbbf24; font-weight:700;">${formatNumber(r.dangVotes)}</td>
+        <td style="color:#34d399; font-weight:700;">${formatNumber(r.anshimVotes)}</td>
         <td>
-          <div style="display:flex; align-items:center; gap:8px; min-width:160px;">
+          <div style="display:flex; align-items:center; gap:8px; min-width:140px;">
             <div style="flex:1; background:#334155; border-radius:4px; height:10px; overflow:hidden;">
               <div style="width:${pct}%; height:100%; background:${barColor}; border-radius:4px; transition:width 0.4s;"></div>
             </div>
@@ -979,18 +992,19 @@
       }
     })
 
-    const rows = [['단위', '동명', '누적 투표수', '보고자', '보고시각']]
+    const rows = [['단위', '동명', '당원투표', '일반(안심번호)', '합계', '보고자', '보고시각']]
     const units = dongsByUnit ? Object.entries(dongsByUnit) : [[null, allDongs]]
     units.forEach(([unit, dongs]) => {
       dongs.forEach(dong => {
         const r = latest[dong]
-        rows.push([unit || '', dong, r ? r.vote_count : 0,
+        rows.push([unit || '', dong,
+          r ? r.dang_count : 0, r ? r.anshim_count : 0, r ? r.vote_count : 0,
           r ? r.reporter_name : '', r ? formatTime(r.submitted_at) : '미보고'])
       })
     })
 
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [8, 16, 12, 14, 12].map(wch => ({ wch }))
+    ws['!cols'] = [8, 16, 12, 14, 10, 14, 12].map(wch => ({ wch }))
     return ws
   }
 
@@ -1000,13 +1014,16 @@
       if (!reporters[row.reporter_phone]) {
         reporters[row.reporter_phone] = {
           name: row.reporter_name, phone: row.reporter_phone,
-          lastTime: row.submitted_at, totalVotes: 0, allDongs: new Set(), count: 0
+          lastTime: row.submitted_at, totalVotes: 0, dangVotes: 0, anshimVotes: 0,
+          allDongs: new Set(), count: 0
         }
       }
       const r = reporters[row.reporter_phone]
       r.allDongs.add(row.dong)
       r.count++
       r.totalVotes += row.vote_count
+      if (row.vote_type === '안심번호') r.anshimVotes += row.vote_count
+      else                              r.dangVotes   += row.vote_count
       if (row.submitted_at > r.lastTime) r.lastTime = row.submitted_at
     })
 
@@ -1019,16 +1036,16 @@
       }
     }
 
-    const rows = [['이름', '전화번호', '단위', '담당 동', '누적 투표수', '제출 횟수', '마지막 보고']]
+    const rows = [['이름', '전화번호', '단위', '담당 동', '당원투표', '일반(안심번호)', '합계', '제출 횟수', '마지막 보고']]
     Object.values(reporters)
       .sort((a, b) => b.totalVotes - a.totalVotes)
       .forEach(r => rows.push([
         r.name, r.phone, [...r.units].join(', '), r.dongs.join(', '),
-        r.totalVotes, r.count, formatTime(r.lastTime)
+        r.dangVotes, r.anshimVotes, r.totalVotes, r.count, formatTime(r.lastTime)
       ]))
 
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [12, 16, 8, 32, 12, 10, 12].map(wch => ({ wch }))
+    ws['!cols'] = [12, 16, 8, 32, 12, 14, 10, 10, 12].map(wch => ({ wch }))
     return ws
   }
 
