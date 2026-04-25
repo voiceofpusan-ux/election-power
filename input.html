@@ -37,7 +37,7 @@
     <div id="form-success" class="msg-success" style="display:none;"></div>
 
     <div class="form-group">
-      <label>이름 (현장책임자)</label>
+      <label>이름 (캠프입력담당자)</label>
       <input type="text" id="inp-name" placeholder="홍길동" maxlength="20">
     </div>
 
@@ -56,8 +56,8 @@
     </div>
 
     <div class="form-group">
-      <label>현장실무자 이름</label>
-      <input type="text" id="inp-field-worker" placeholder="현장에서 보고한 실무자 이름" maxlength="20">
+      <label>투표현황보고자</label>
+      <input type="text" id="inp-field-worker" placeholder="현장에서 투표현황을 보고한 분 이름" maxlength="20">
     </div>
 
     <div class="form-group">
@@ -312,7 +312,7 @@
     if (!dong)
       return showFormError('담당 동을 선택하세요.')
     if (!fieldWorker)
-      return showFormError('현장실무자 이름을 입력하세요.')
+      return showFormError('투표현황보고자 이름을 입력하세요.')
     if (isNaN(votes) || votes === 0)
       return showFormError('투표자수를 입력하세요.')
     if (votes < 0)
