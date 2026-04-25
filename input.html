@@ -57,7 +57,9 @@
 
     <div class="form-group">
       <label>투표현황보고자</label>
-      <input type="text" id="inp-field-worker" placeholder="현장에서 투표현황을 보고한 분 이름" maxlength="20">
+      <input type="text" id="inp-field-worker" placeholder="현장에서 투표현황을 보고한 분 이름"
+             maxlength="20" list="fw-datalist" autocomplete="off">
+      <datalist id="fw-datalist"></datalist>
     </div>
 
     <div class="form-group">
@@ -194,6 +196,7 @@
       selectVoteType('당원')   // 정당 색상 적용 후 기본값 세팅
       await loadDongOptions()
       restoreInputs()
+      loadFieldWorkerNames()
       await loadMyHistory()
       if (camp.election_type === '본선') {
         document.getElementById('closing-card').style.display = 'block'
@@ -229,6 +232,29 @@
       opt.textContent = d
       sel.appendChild(opt)
     })
+  }
+
+  // ── 투표현황보고자 이름 목록 ─────────────────────
+  function loadFieldWorkerNames() {
+    const saved = JSON.parse(localStorage.getItem(`cv_fw_names_${camp.slug}`) || '[]')
+    const dl    = document.getElementById('fw-datalist')
+    dl.innerHTML = ''
+    saved.forEach(name => {
+      const opt = document.createElement('option')
+      opt.value = name
+      dl.appendChild(opt)
+    })
+    const input = document.getElementById('inp-field-worker')
+    if (saved.length > 0 && !input.value) input.value = saved[0]
+  }
+
+  function saveFieldWorkerName(name) {
+    if (!name) return
+    const key   = `cv_fw_names_${camp.slug}`
+    const saved = JSON.parse(localStorage.getItem(key) || '[]')
+    const next  = [name, ...saved.filter(n => n !== name)].slice(0, 15)
+    localStorage.setItem(key, JSON.stringify(next))
+    loadFieldWorkerNames()
   }
 
   // ── 입력값 복원 (localStorage) ───────────────────
@@ -412,6 +438,7 @@
       lastVoteCount = votes
       const label = votes < 0 ? `${dong} ${formatNumber(votes)}표 차감 완료!` : `${dong} ${formatNumber(votes)}표 제출 완료!`
       showFormSuccess(label)
+      saveFieldWorkerName(fieldWorker)   // 이름 목록에 저장 (datalist 갱신)
       document.getElementById('inp-votes').value = ''
       document.getElementById('inp-field-worker').value = ''  // 다음 입력을 위해 초기화
       await loadMyHistory()
