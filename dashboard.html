@@ -280,7 +280,10 @@
         <span class="live-dot"></span> 실시간 연결
       </div>
     </div>
-    <button class="refresh-btn" onclick="refreshDashboard()">🔄 새로고침</button>
+    <div style="display:flex; gap:8px;">
+      <button class="refresh-btn" id="btn-export" onclick="exportExcel()">📥 엑셀</button>
+      <button class="refresh-btn" onclick="refreshDashboard()">🔄 새로고침</button>
+    </div>
   </header>
 
   <!-- 요약 바 -->
@@ -403,6 +406,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/utils.js"></script>
@@ -926,6 +930,149 @@
     if (realtimeCh)  db.removeChannel(realtimeCh)
     if (closingsCh)  db.removeChannel(closingsCh)
   })
+
+  // ── 엑셀 내보내기 ───────────────────────────────────
+  async function exportExcel() {
+    const btn = document.getElementById('btn-export')
+    btn.disabled = true
+    btn.textContent = '준비 중...'
+
+    try {
+      const { data } = await db
+        .from('submissions')
+        .select('reporter_name, reporter_phone, dong, vote_count, vote_type, field_worker_name, submitted_at')
+        .eq('camp_id', camp.id)
+        .order('submitted_at', { ascending: false })
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, buildDongSheet(data),              '동별 현황')
+      XLSX.utils.book_append_sheet(wb, await buildReporterSheet(data),    '담당자별 통계')
+      XLSX.utils.book_append_sheet(wb, await buildFieldWorkerSheet(data), '투표현황보고자')
+
+      const now     = new Date()
+      const dateStr = now.getFullYear().toString()
+        + String(now.getMonth() + 1).padStart(2, '0')
+        + String(now.getDate()).padStart(2, '0') + '_'
+        + String(now.getHours()).padStart(2, '0')
+        + String(now.getMinutes()).padStart(2, '0')
+      XLSX.writeFile(wb, `${camp.district}_${camp.party_name}_${dateStr}.xlsx`)
+      showToast('엑셀 파일이 다운로드됐습니다.')
+
+    } catch (e) {
+      showToast('내보내기 실패: ' + e.message, 'error')
+    } finally {
+      btn.disabled = false
+      btn.textContent = '📥 엑셀'
+    }
+  }
+
+  function buildDongSheet(data) {
+    // 동별 누적합
+    const latest = {}
+    data.forEach(row => {
+      if (!latest[row.dong]) latest[row.dong] = { ...row, vote_count: 0 }
+      latest[row.dong].vote_count += row.vote_count
+      if (row.submitted_at > (latest[row.dong]._t || '')) {
+        latest[row.dong].submitted_at  = row.submitted_at
+        latest[row.dong].reporter_name = row.reporter_name
+        latest[row.dong]._t            = row.submitted_at
+      }
+    })
+
+    const rows = [['단위', '동명', '누적 투표수', '보고자', '보고시각']]
+    const units = dongsByUnit ? Object.entries(dongsByUnit) : [[null, allDongs]]
+    units.forEach(([unit, dongs]) => {
+      dongs.forEach(dong => {
+        const r = latest[dong]
+        rows.push([unit || '', dong, r ? r.vote_count : 0,
+          r ? r.reporter_name : '', r ? formatTime(r.submitted_at) : '미보고'])
+      })
+    })
+
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws['!cols'] = [8, 16, 12, 14, 12].map(wch => ({ wch }))
+    return ws
+  }
+
+  async function buildReporterSheet(data) {
+    const reporters = {}
+    data.forEach(row => {
+      if (!reporters[row.reporter_phone]) {
+        reporters[row.reporter_phone] = {
+          name: row.reporter_name, phone: row.reporter_phone,
+          lastTime: row.submitted_at, totalVotes: 0, allDongs: new Set(), count: 0
+        }
+      }
+      const r = reporters[row.reporter_phone]
+      r.allDongs.add(row.dong)
+      r.count++
+      r.totalVotes += row.vote_count
+      if (row.submitted_at > r.lastTime) r.lastTime = row.submitted_at
+    })
+
+    for (const r of Object.values(reporters)) {
+      r.dongs = [...r.allDongs]
+      r.units = new Set()
+      for (const dong of r.dongs) {
+        const u = await getUnitByDong(camp.sigungu, dong)
+        if (u) r.units.add(u)
+      }
+    }
+
+    const rows = [['이름', '전화번호', '단위', '담당 동', '누적 투표수', '제출 횟수', '마지막 보고']]
+    Object.values(reporters)
+      .sort((a, b) => b.totalVotes - a.totalVotes)
+      .forEach(r => rows.push([
+        r.name, r.phone, [...r.units].join(', '), r.dongs.join(', '),
+        r.totalVotes, r.count, formatTime(r.lastTime)
+      ]))
+
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws['!cols'] = [12, 16, 8, 32, 12, 10, 12].map(wch => ({ wch }))
+    return ws
+  }
+
+  async function buildFieldWorkerSheet(data) {
+    const workers = {}
+    data.forEach(row => {
+      const key = row.field_worker_name || '(미입력)'
+      if (!workers[key]) {
+        workers[key] = {
+          name: key, lastTime: row.submitted_at,
+          totalVotes: 0, dangVotes: 0, anshimVotes: 0,
+          allDongs: new Set(), count: 0
+        }
+      }
+      const w = workers[key]
+      w.count++
+      w.totalVotes += row.vote_count
+      if (row.vote_type === '안심번호') w.anshimVotes += row.vote_count
+      else                              w.dangVotes   += row.vote_count
+      if (row.dong) w.allDongs.add(row.dong)
+      if (row.submitted_at > w.lastTime) w.lastTime = row.submitted_at
+    })
+
+    for (const w of Object.values(workers)) {
+      w.dongs = [...w.allDongs]
+      w.units = new Set()
+      for (const dong of w.dongs) {
+        const u = await getUnitByDong(camp.sigungu, dong)
+        if (u) w.units.add(u)
+      }
+    }
+
+    const rows = [['보고자', '단위', '담당 동', '당원투표', '일반(안심번호)', '합계', '보고 횟수', '마지막 보고']]
+    Object.values(workers)
+      .sort((a, b) => b.totalVotes - a.totalVotes)
+      .forEach(w => rows.push([
+        w.name, [...w.units].join(', '), w.dongs.join(', '),
+        w.dangVotes, w.anshimVotes, w.totalVotes, w.count, formatTime(w.lastTime)
+      ]))
+
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws['!cols'] = [12, 8, 32, 12, 14, 10, 10, 12].map(wch => ({ wch }))
+    return ws
+  }
 
   function showError(msg) {
     document.getElementById('loading').style.display      = 'none'
