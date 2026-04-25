@@ -549,7 +549,8 @@
             <th style="color:#fbbf24;">당원</th>
             <th style="color:#34d399;">안심번호</th>
             <th>합계</th>
-            <th>보고자</th>
+            <th>입력담당자</th>
+            <th>현황보고자</th>
             <th>시각</th>
           </tr>
         </thead>
@@ -563,7 +564,7 @@
   async function refreshDashboard() {
     const { data } = await db
       .from('submissions')
-      .select('dong, reporter_name, reporter_phone, vote_count, vote_type, submitted_at')
+      .select('dong, reporter_name, reporter_phone, vote_count, vote_type, field_worker_name, submitted_at')
       .eq('camp_id', camp.id)
       .order('submitted_at', { ascending: false })
 
@@ -580,10 +581,11 @@
       else                              latest[row.dong].dang_count   += row.vote_count
       // 가장 최근 제출자 이름·시간 갱신
       if (row.submitted_at > (latest[row.dong]._latestTime || '')) {
-        latest[row.dong].submitted_at   = row.submitted_at
-        latest[row.dong].reporter_name  = row.reporter_name
-        latest[row.dong].reporter_phone = row.reporter_phone
-        latest[row.dong]._latestTime    = row.submitted_at
+        latest[row.dong].submitted_at      = row.submitted_at
+        latest[row.dong].reporter_name     = row.reporter_name
+        latest[row.dong].reporter_phone    = row.reporter_phone
+        latest[row.dong].field_worker_name = row.field_worker_name
+        latest[row.dong]._latestTime       = row.submitted_at
       }
     })
 
@@ -727,7 +729,8 @@
         <td style="color:#fbbf24; font-weight:600;">${r ? formatNumber(r.dang_count) : '-'}</td>
         <td style="color:#34d399; font-weight:600;">${r ? formatNumber(r.anshim_count) : '-'}</td>
         <td class="votes">${r ? formatNumber(r.vote_count) + '표' : '미보고'}</td>
-        <td>${r ? r.reporter_name : '-'}</td>
+        <td style="font-size:12px;">${r ? r.reporter_name : '-'}</td>
+        <td style="font-size:12px; color:#94a3b8;">${r?.field_worker_name || '-'}</td>
         <td class="time">${r ? formatTime(r.submitted_at) : '-'}</td>
       `
       tbody.appendChild(tr)
