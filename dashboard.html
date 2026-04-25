@@ -280,7 +280,15 @@
         <span class="live-dot"></span> 실시간 연결
       </div>
     </div>
-    <div style="display:flex; gap:8px;">
+    <div style="display:flex; gap:8px; align-items:center;">
+      <select id="interval-sel" onchange="setRefreshInterval(this.value)"
+        style="background:rgba(255,255,255,0.15); color:#fff; border:none; border-radius:8px;
+               padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer; outline:none;">
+        <option value="0">자동갱신 꺼짐</option>
+        <option value="15">15초</option>
+        <option value="30" selected>30초</option>
+        <option value="60">60초</option>
+      </select>
       <button class="refresh-btn" id="btn-export" onclick="exportExcel()">📥 엑셀</button>
       <button class="refresh-btn" onclick="refreshDashboard()">🔄 새로고침</button>
     </div>
@@ -322,6 +330,8 @@
     <button class="tab-btn active" onclick="switchTab('realtime')">실시간 현황</button>
     <button class="tab-btn"        onclick="switchTab('reporter')">담당자별 통계</button>
     <button class="tab-btn"        onclick="switchTab('fieldworker')">투표현황보고자 통계</button>
+    <button class="tab-btn"        onclick="switchTab('trend')">시간별 추세</button>
+    <button class="tab-btn"        onclick="switchTab('low')">저조 동 독려</button>
   </div>
 
   <!-- 탭 1: 실시간 현황 -->
@@ -405,6 +415,39 @@
     </div>
   </div>
 
+  <!-- 탭 4: 시간별 추세 -->
+  <div class="tab-pane" id="pane-trend">
+    <div class="reporter-wrap">
+      <div class="chart-card">
+        <canvas id="trend-chart" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 탭 5: 저조 동 독려 -->
+  <div class="tab-pane" id="pane-low">
+    <div class="reporter-wrap">
+      <p style="font-size:12px; color:#64748b; margin-bottom:12px;">
+        누적 투표수 낮은 동 순서입니다. 담당자에게 독려 전화를 걸어보세요.
+      </p>
+      <table class="reporter-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>동명</th>
+            <th>단위</th>
+            <th style="color:#fbbf24;">당원</th>
+            <th style="color:#34d399;">안심번호</th>
+            <th>합계</th>
+            <th>최근 담당자</th>
+            <th>전화</th>
+          </tr>
+        </thead>
+        <tbody id="low-body"></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -425,6 +468,9 @@
   let reporterSort      = 'desc'
   let fieldWorkerCache  = []
   let fieldWorkerSort   = 'desc'
+  let autoRefreshTimer  = null
+  let latestDongData    = {}
+  let trendChart        = null
 
   // ── 초기화 ──────────────────────────────────────────
   async function init() {
@@ -457,6 +503,7 @@
 
       document.getElementById('loading').style.display = 'none'
       document.getElementById('main').style.display    = 'block'
+      setRefreshInterval(30)
 
     } catch (e) {
       showError('오류: ' + e.message)
@@ -533,12 +580,14 @@
       else                              latest[row.dong].dang_count   += row.vote_count
       // 가장 최근 제출자 이름·시간 갱신
       if (row.submitted_at > (latest[row.dong]._latestTime || '')) {
-        latest[row.dong].submitted_at  = row.submitted_at
-        latest[row.dong].reporter_name = row.reporter_name
-        latest[row.dong]._latestTime   = row.submitted_at
+        latest[row.dong].submitted_at   = row.submitted_at
+        latest[row.dong].reporter_name  = row.reporter_name
+        latest[row.dong].reporter_phone = row.reporter_phone
+        latest[row.dong]._latestTime    = row.submitted_at
       }
     })
 
+    latestDongData = latest
     renderSummary(latest)
 
     if (dongsByUnit) {
@@ -697,7 +746,7 @@
 
   // ── 탭 전환 ─────────────────────────────────────────
   function switchTab(tab) {
-    const names = ['realtime', 'reporter', 'fieldworker']
+    const names = ['realtime', 'reporter', 'fieldworker', 'trend', 'low']
     document.querySelectorAll('.tab-btn').forEach((btn, i) => {
       btn.classList.toggle('active', names[i] === tab)
     })
@@ -706,6 +755,8 @@
     })
     if (tab === 'reporter')    renderReporterStats()
     if (tab === 'fieldworker') renderFieldWorkerStats()
+    if (tab === 'trend')       renderTrendChart()
+    if (tab === 'low')         renderLowPanel()
   }
 
   // ── 담당자별 통계 ────────────────────────────────────
@@ -975,6 +1026,7 @@
   }
 
   window.addEventListener('beforeunload', () => {
+    clearInterval(autoRefreshTimer)
     if (realtimeCh)  db.removeChannel(realtimeCh)
     if (closingsCh)  db.removeChannel(closingsCh)
   })
@@ -1132,6 +1184,114 @@
     ws['!freeze']     = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' }
     ws['!autofilter'] = { ref: ws['!ref'] }
     return ws
+  }
+
+  // ── 자동갱신 주기 설정 ───────────────────────────────
+  function setRefreshInterval(seconds) {
+    clearInterval(autoRefreshTimer)
+    const s = parseInt(seconds, 10)
+    if (s > 0) autoRefreshTimer = setInterval(refreshDashboard, s * 1000)
+  }
+
+  // ── 동 → 단위 (동기) ────────────────────────────────
+  function getUnitForDong(dong) {
+    if (!dongsByUnit) return null
+    for (const [unit, dongs] of Object.entries(dongsByUnit)) {
+      if (dongs.includes(dong)) return unit
+    }
+    return null
+  }
+
+  // ── 시간별 추세 차트 ────────────────────────────────
+  async function renderTrendChart() {
+    const { data } = await db
+      .from('submissions')
+      .select('vote_count, vote_type, submitted_at')
+      .eq('camp_id', camp.id)
+      .order('submitted_at', { ascending: true })
+
+    if (!data || data.length === 0) {
+      document.getElementById('pane-trend').innerHTML =
+        '<div style="padding:40px; text-align:center; color:#64748b;">아직 제출 데이터가 없습니다.</div>'
+      return
+    }
+
+    const hourMap = {}
+    data.forEach(row => {
+      const h = new Date(row.submitted_at).getHours()
+      if (!hourMap[h]) hourMap[h] = { dang: 0, anshim: 0 }
+      if (row.vote_type === '안심번호') hourMap[h].anshim += row.vote_count
+      else                              hourMap[h].dang   += row.vote_count
+    })
+
+    const hours  = Object.keys(hourMap).map(Number).sort((a, b) => a - b)
+    const labels = hours.map(h => `${h}시`)
+
+    const dangPerHour   = hours.map(h => hourMap[h].dang)
+    const anshimPerHour = hours.map(h => hourMap[h].anshim)
+
+    let cd = 0, ca = 0, ct = 0
+    const cumDang   = hours.map(h => { cd += hourMap[h].dang;                    return cd })
+    const cumAnshim = hours.map(h => { ca += hourMap[h].anshim;                  return ca })
+    const cumTotal  = hours.map(h => { ct += hourMap[h].dang + hourMap[h].anshim; return ct })
+
+    const canvas = document.getElementById('trend-chart')
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (trendChart) trendChart.destroy()
+
+    trendChart = new Chart(ctx, {
+      data: {
+        labels,
+        datasets: [
+          { type:'bar',  label:'당원(시간별)',     data: dangPerHour,   backgroundColor:'rgba(59,130,246,0.35)', borderRadius:4 },
+          { type:'bar',  label:'안심번호(시간별)', data: anshimPerHour, backgroundColor:'rgba(249,115,22,0.35)',  borderRadius:4 },
+          { type:'line', label:'당원(누적)',        data: cumDang,       borderColor:'#3b82f6', backgroundColor:'transparent', tension:0.3, pointRadius:3, borderWidth:2 },
+          { type:'line', label:'안심번호(누적)',    data: cumAnshim,     borderColor:'#f97316', backgroundColor:'transparent', tension:0.3, pointRadius:3, borderWidth:2 },
+          { type:'line', label:'합계(누적)',        data: cumTotal,      borderColor:'#94a3b8', backgroundColor:'transparent', tension:0.3, pointRadius:3, borderWidth:2 }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display:true, labels:{ color:'#94a3b8', font:{size:11}, boxWidth:12 } }
+        },
+        scales: {
+          x: { ticks:{ color:'#94a3b8', font:{size:10} }, grid:{ color:'#334155' } },
+          y: { beginAtZero:true, ticks:{ color:'#94a3b8', font:{size:10} }, grid:{ color:'#334155' } }
+        }
+      }
+    })
+  }
+
+  // ── 저조 동 독려 ────────────────────────────────────
+  function renderLowPanel() {
+    const tbody = document.getElementById('low-body')
+    tbody.innerHTML = ''
+
+    const sorted = [...allDongs].sort((a, b) =>
+      (latestDongData[a]?.vote_count || 0) - (latestDongData[b]?.vote_count || 0)
+    )
+
+    sorted.forEach((dong, i) => {
+      const r    = latestDongData[dong]
+      const unit = getUnitForDong(dong)
+      const tr   = document.createElement('tr')
+      if (!r) tr.className = 'unreported'
+      tr.innerHTML = `
+        <td style="color:#64748b;">${i + 1}</td>
+        <td class="dong-name">${dong}</td>
+        <td>${unit ? `<span class="unit-badge">${unit}</span>` : '-'}</td>
+        <td style="color:#fbbf24; font-weight:600;">${r ? formatNumber(r.dang_count)   : '-'}</td>
+        <td style="color:#34d399; font-weight:600;">${r ? formatNumber(r.anshim_count) : '-'}</td>
+        <td class="${r ? 'votes' : ''}">${r ? formatNumber(r.vote_count) + '표' : '미보고'}</td>
+        <td>${r?.reporter_name || '-'}</td>
+        <td>${r?.reporter_phone
+          ? `<button class="call-btn" onclick="openCallModal('${r.reporter_name}','${r.reporter_phone}')">📞 전화</button>`
+          : '-'}</td>
+      `
+      tbody.appendChild(tr)
+    })
   }
 
   function showError(msg) {
