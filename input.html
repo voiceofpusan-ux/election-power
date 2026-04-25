@@ -101,11 +101,15 @@
     </button>
   </div>
 
-  <!-- 담당자별 실적 보기 버튼 -->
-  <div style="margin: 0 12px 8px; display:flex; justify-content:center;">
-    <button class="btn btn-primary" onclick="openRanking()"
-            style="background:#dc2626; width:80%;">
-      📊 담당자별 실적 보기
+  <!-- 실적 보기 버튼 -->
+  <div style="margin: 0 12px 8px; display:flex; gap:8px;">
+    <button class="btn btn-primary" onclick="openRanking('reporter')"
+            style="background:#dc2626; flex:1;">
+      📊 본부입력담당자 실적
+    </button>
+    <button class="btn btn-primary" onclick="openRanking('fieldworker')"
+            style="background:#7c3aed; flex:1;">
+      📊 투표현황보고자 실적
     </button>
   </div>
 
@@ -133,7 +137,7 @@
     <div style="background:#fff; border-radius:16px; max-width:480px; margin:0 auto;">
       <div style="padding:16px 20px; border-bottom:1px solid #eee;
                   display:flex; justify-content:space-between; align-items:center;">
-        <span style="font-weight:700; font-size:15px;">📊 담당자별 실적</span>
+        <span id="ranking-title" style="font-weight:700; font-size:15px;">📊 담당자별 실적</span>
         <button onclick="closeRanking()"
                 style="border:none; background:none; font-size:20px; cursor:pointer; color:#888;">✕</button>
       </div>
@@ -570,17 +574,21 @@
     return false
   }
 
-  // ── 담당자별 실적 ─────────────────────────────────────
-  async function openRanking() {
+  // ── 실적 모달 ─────────────────────────────────────────
+  async function openRanking(type) {
+    const isFieldWorker = type === 'fieldworker'
+    document.getElementById('ranking-title').textContent =
+      isFieldWorker ? '📊 투표현황보고자 실적' : '📊 본부입력담당자 실적'
     document.getElementById('ranking-modal').style.display = 'block'
     document.getElementById('ranking-list').innerHTML =
       '<div style="text-align:center; padding:24px; color:#888;">불러오는 중...</div>'
 
-    const myPhone = document.getElementById('inp-phone').value.trim()
+    const myPhone      = selectedPhone || document.getElementById('inp-phone').value.trim()
+    const myFwName     = document.getElementById('inp-field-worker').value.trim()
 
     const { data } = await db
       .from('submissions')
-      .select('reporter_name, reporter_phone, dong, vote_count, submitted_at')
+      .select('reporter_name, reporter_phone, field_worker_name, dong, vote_count, vote_type, submitted_at')
       .eq('camp_id', camp.id)
       .order('submitted_at', { ascending: false })
 
@@ -590,22 +598,29 @@
       return
     }
 
-    // 담당자별 누적합 집계
-    const reporters = {}
+    // 집계
+    const map = {}
     data.forEach(row => {
-      if (!reporters[row.reporter_phone]) {
-        reporters[row.reporter_phone] = {
-          name: row.reporter_name, phone: row.reporter_phone,
-          dong: row.dong, votes: 0, time: row.submitted_at
+      const key = isFieldWorker
+        ? (row.field_worker_name || '(미입력)')
+        : row.reporter_phone
+      if (!map[key]) {
+        map[key] = {
+          name:   isFieldWorker ? (row.field_worker_name || '(미입력)') : row.reporter_name,
+          id:     key,
+          dong:   row.dong, votes: 0, dangVotes: 0, anshimVotes: 0, time: row.submitted_at
         }
       }
-      reporters[row.reporter_phone].votes += row.vote_count
+      map[key].votes += row.vote_count
+      if (row.vote_type === '안심번호') map[key].anshimVotes += row.vote_count
+      else                              map[key].dangVotes   += row.vote_count
+      if (row.submitted_at > map[key].time) {
+        map[key].time = row.submitted_at
+        map[key].dong = row.dong
+      }
     })
 
-    // 투표수 내림차순 정렬
-    let sorted = Object.values(reporters).sort((a, b) => b.votes - a.votes)
-
-    // 대시보드에서 설정한 순위 제한 적용
+    let sorted = Object.values(map).sort((a, b) => b.votes - a.votes)
     const limit = camp.reporter_limit || 0
     if (limit > 0) sorted = sorted.slice(0, limit)
 
@@ -620,24 +635,25 @@
     }
 
     sorted.forEach((r, i) => {
-      const isMe  = r.phone === myPhone
+      const isMe  = isFieldWorker ? r.name === myFwName : r.id === myPhone
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`
-      const div   = document.createElement('div')
-      div.style.cssText = `
-        padding: 12px 20px;
-        display: flex; align-items: center; gap: 12px;
-        border-bottom: 1px solid #f0f0f0;
-        background: ${isMe ? '#E3F0FF' : '#fff'};
-      `
+      const primary = camp?.party === 'people' ? '#C9151E' : '#004EA2'
+      const sub = isFieldWorker
+        ? `<span style="font-size:10px; background:#fef3c7; color:#92400e; border-radius:3px; padding:1px 5px; margin-right:3px;">당원 ${formatNumber(r.dangVotes)}</span>` +
+          `<span style="font-size:10px; background:#e0f2fe; color:#0369a1; border-radius:3px; padding:1px 5px;">안심 ${formatNumber(r.anshimVotes)}</span>`
+        : `${r.dong} · ${formatTime(r.time)}`
+      const div = document.createElement('div')
+      div.style.cssText = `padding:12px 20px; display:flex; align-items:center; gap:12px;
+        border-bottom:1px solid #f0f0f0; background:${isMe ? '#E3F0FF' : '#fff'};`
       div.innerHTML = `
         <span style="font-size:18px; min-width:28px;">${medal}</span>
         <div style="flex:1;">
           <div style="font-weight:${isMe ? '700' : '600'}; font-size:14px;">
-            ${r.name} ${isMe ? '<span style="color:#004EA2; font-size:11px;">(나)</span>' : ''}
+            ${r.name}${isMe ? ` <span style="color:${primary}; font-size:11px;">(나)</span>` : ''}
           </div>
-          <div style="font-size:12px; color:#888;">${r.dong} · ${formatTime(r.time)}</div>
+          <div style="font-size:12px; color:#888; margin-top:2px;">${sub}</div>
         </div>
-        <span style="font-size:17px; font-weight:700; color:${isMe ? '#004EA2' : '#222'};">
+        <span style="font-size:17px; font-weight:700; color:${isMe ? primary : '#222'};">
           ${formatNumber(r.votes)}표
         </span>
       `
