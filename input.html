@@ -37,14 +37,24 @@
     <div id="form-success" class="msg-success" style="display:none;"></div>
 
     <div class="form-group">
-      <label>이름 (캠프입력담당자)</label>
-      <input type="text" id="inp-name" placeholder="홍길동" maxlength="20">
+      <label>본부입력담당자</label>
+      <input type="text" id="inp-name" placeholder="홍길동" maxlength="20"
+             list="name-datalist" autocomplete="off">
+      <datalist id="name-datalist"></datalist>
     </div>
 
     <div class="form-group">
       <label>전화번호</label>
-      <input type="tel" id="inp-phone" placeholder="010-0000-0000"
-             inputmode="numeric" maxlength="13">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="tel" id="inp-phone" placeholder="010-0000-0000"
+               inputmode="numeric" maxlength="13" style="flex:1;">
+        <button type="button" id="phone-edit-btn" onclick="unlockPhone()"
+                style="display:none; padding:0 14px; height:48px; border-radius:10px;
+                       border:1.5px solid #e0e0e0; background:#fff; color:#555;
+                       font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">
+          수정
+        </button>
+      </div>
     </div>
 
     <div class="form-group">
@@ -162,10 +172,12 @@
 <script src="js/utils.js"></script>
 <script src="js/address.js"></script>
 <script>
-  let camp = null
+  let camp          = null
   let lastVoteCount = null
   let currentClosing = null
-  let voteType = '당원'
+  let voteType       = '당원'
+  let reporterMap    = {}    // name → fullPhone (DB + localStorage)
+  let selectedPhone  = null  // 목록 선택 시 실제 전화번호
 
   function selectVoteType(type) {
     voteType = type
@@ -195,6 +207,7 @@
       renderCamp()
       selectVoteType('당원')   // 정당 색상 적용 후 기본값 세팅
       await loadDongOptions()
+      await loadReporterList()  // name-datalist + reporterMap 구성
       restoreInputs()
       loadFieldWorkerNames()
       await loadMyHistory()
@@ -234,6 +247,87 @@
     })
   }
 
+  // ── 본부입력담당자 목록 (DB + localStorage) ──────
+  async function loadReporterList() {
+    const { data } = await db
+      .from('submissions')
+      .select('reporter_name, reporter_phone')
+      .eq('camp_id', camp.id)
+      .order('submitted_at', { ascending: false })
+
+    reporterMap = {}
+    ;(data || []).forEach(row => {
+      if (!reporterMap[row.reporter_name])
+        reporterMap[row.reporter_name] = row.reporter_phone
+    })
+
+    // localStorage 병합 (오프라인 신규 등록자 포함)
+    const saved = JSON.parse(localStorage.getItem(`cv_reporters_${camp.slug}`) || '[]')
+    saved.forEach(({ name, phone }) => {
+      if (!reporterMap[name]) reporterMap[name] = phone
+    })
+
+    refreshNameDatalist()
+  }
+
+  function refreshNameDatalist() {
+    const dl = document.getElementById('name-datalist')
+    dl.innerHTML = ''
+    Object.keys(reporterMap).forEach(name => {
+      const opt = document.createElement('option')
+      opt.value = name
+      dl.appendChild(opt)
+    })
+  }
+
+  function maskPhone(phone) {
+    const parts = phone.split('-')
+    return parts.length === 3 ? `${parts[0]}-****-${parts[2]}` : phone
+  }
+
+  function applyReporterSelection(name) {
+    const phone   = reporterMap[name]
+    const phoneEl = document.getElementById('inp-phone')
+    const editBtn = document.getElementById('phone-edit-btn')
+    if (phone) {
+      selectedPhone        = phone
+      phoneEl.value        = maskPhone(phone)
+      phoneEl.readOnly     = true
+      phoneEl.style.background = '#f5f5f5'
+      phoneEl.style.color      = '#888'
+      editBtn.style.display    = 'inline-block'
+    } else {
+      selectedPhone            = null
+      phoneEl.readOnly         = false
+      phoneEl.style.background = ''
+      phoneEl.style.color      = ''
+      editBtn.style.display    = 'none'
+    }
+  }
+
+  function unlockPhone() {
+    selectedPhone = null
+    const phoneEl = document.getElementById('inp-phone')
+    phoneEl.value        = ''
+    phoneEl.readOnly     = false
+    phoneEl.style.background = ''
+    phoneEl.style.color      = ''
+    document.getElementById('phone-edit-btn').style.display = 'none'
+    phoneEl.focus()
+  }
+
+  function saveReporter(name, phone) {
+    if (!name || !phone) return
+    const key  = `cv_reporters_${camp.slug}`
+    const list = JSON.parse(localStorage.getItem(key) || '[]')
+    const next = [{ name, phone }, ...list.filter(r => r.name !== name)].slice(0, 20)
+    localStorage.setItem(key, JSON.stringify(next))
+    if (!reporterMap[name]) {
+      reporterMap[name] = phone
+      refreshNameDatalist()
+    }
+  }
+
   // ── 투표현황보고자 이름 목록 ─────────────────────
   function loadFieldWorkerNames() {
     const saved = JSON.parse(localStorage.getItem(`cv_fw_names_${camp.slug}`) || '[]')
@@ -260,11 +354,16 @@
   // ── 입력값 복원 (localStorage) ───────────────────
   function restoreInputs() {
     const saved = JSON.parse(localStorage.getItem(`cv_input_${camp.slug}`) || '{}')
-    if (saved.name)  document.getElementById('inp-name').value  = saved.name
-    if (saved.phone) document.getElementById('inp-phone').value = saved.phone
+    if (saved.name) {
+      document.getElementById('inp-name').value = saved.name
+      applyReporterSelection(saved.name)
+      // reporterMap에 없는 신규 사용자면 저장된 phone 복원
+      if (!selectedPhone && saved.phone)
+        document.getElementById('inp-phone').value = saved.phone
+    }
     if (saved.dong) {
       document.getElementById('inp-dong').value = saved.dong
-      loadLastVoteCount(saved.phone, saved.dong)
+      loadLastVoteCount(selectedPhone || saved.phone, saved.dong)
     }
   }
 
@@ -324,16 +423,16 @@
     hideMsg()
 
     const name        = document.getElementById('inp-name').value.trim()
-    const phone       = document.getElementById('inp-phone').value.trim()
     const dong        = document.getElementById('inp-dong').value
     const fieldWorker = document.getElementById('inp-field-worker').value.trim()
     const votesRaw    = document.getElementById('inp-votes').value
     const votes       = parseInt(votesRaw, 10)
+    const actualPhone = selectedPhone || document.getElementById('inp-phone').value.trim()
 
     // 유효성 검사
     if (!name || name.length < 2)
       return showFormError('이름을 2자 이상 입력하세요.')
-    if (!isValidPhone(phone))
+    if (!isValidPhone(actualPhone))
       return showFormError('전화번호를 확인하세요. (010-XXXX-XXXX)')
     if (!dong)
       return showFormError('담당 동을 선택하세요.')
@@ -344,11 +443,11 @@
     if (votes < 0)
       return showFormError('음수는 입력할 수 없습니다.')
 
-    // 동일 번호 다른 이름 차단
-    const blocked = await checkDuplicatePhone()
+    // 동일 번호 다른 이름 차단 (신규 등록자만 검사)
+    const blocked = await checkDuplicatePhone(name, actualPhone)
     if (blocked) return
 
-    await doInsert(name, phone, dong, votes, voteType, fieldWorker)
+    await doInsert(name, actualPhone, dong, votes, voteType, fieldWorker)
   }
 
   // ── 음수 차감 처리 ────────────────────────────────
@@ -432,6 +531,7 @@
 
       if (error) throw error
 
+      saveReporter(name, phone)  // name-datalist + localStorage 갱신
       localStorage.setItem(`cv_input_${camp.slug}`,
         JSON.stringify({ name, phone, dong }))
 
@@ -452,23 +552,19 @@
   }
 
   // ── 전화번호 중복 체크 ────────────────────────────────
-  async function checkDuplicatePhone() {
-    const phone = document.getElementById('inp-phone').value.trim()
-    if (!isValidPhone(phone)) return false
-
-    // 내 이전 제출 번호면 재제출 허용
-    const saved = JSON.parse(localStorage.getItem(`cv_input_${camp.slug}`) || '{}')
-    if (saved.phone === phone) return false
+  async function checkDuplicatePhone(name, actualPhone) {
+    // 목록에서 선택한 기존 등록자 → 이미 검증됨
+    if (selectedPhone) return false
 
     const { data } = await db
       .from('submissions')
-      .select('reporter_phone')
+      .select('reporter_name')
       .eq('camp_id', camp.id)
-      .eq('reporter_phone', phone)
+      .eq('reporter_phone', actualPhone)
       .limit(1)
 
-    if (data && data.length > 0) {
-      showFormError('이미 등록된 전화번호입니다.')
+    if (data && data.length > 0 && data[0].reporter_name !== name) {
+      showFormError(`이 번호는 이미 '${data[0].reporter_name}'으로 등록되어 있습니다.`)
       return true
     }
     return false
@@ -593,7 +689,7 @@
 
   async function submitClosing() {
     const name  = document.getElementById('inp-name').value.trim()
-    const phone = document.getElementById('inp-phone').value.trim()
+    const phone = selectedPhone || document.getElementById('inp-phone').value.trim()
     const dong  = document.getElementById('inp-dong').value
 
     if (!name || !isValidPhone(phone) || !dong) {
@@ -641,19 +737,28 @@
 
   // ── 전화번호 자동 하이픈 ──────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
+    // 이름 변경 시 전화번호 자동 처리
+    const nameEl = document.getElementById('inp-name')
+    nameEl.addEventListener('change', () => {
+      applyReporterSelection(nameEl.value.trim())
+    })
+
     const phoneEl = document.getElementById('inp-phone')
     phoneEl.addEventListener('input', e => {
-      e.target.value = formatPhone(e.target.value)
+      if (!phoneEl.readOnly) e.target.value = formatPhone(e.target.value)
     })
     phoneEl.addEventListener('blur', async () => {
-      await checkDuplicatePhone()
+      const actualPhone = selectedPhone || phoneEl.value.trim()
+      const name = document.getElementById('inp-name').value.trim()
+      await checkDuplicatePhone(name, actualPhone)
       await loadMyHistory()
     })
 
     const dongEl = document.getElementById('inp-dong')
     dongEl.addEventListener('change', async () => {
       const dong = dongEl.value
-      loadLastVoteCount(document.getElementById('inp-phone').value, dong)
+      const actualPhone = selectedPhone || document.getElementById('inp-phone').value
+      loadLastVoteCount(actualPhone, dong)
 
       const unitEl = document.getElementById('unit-display')
       if (dong) {
