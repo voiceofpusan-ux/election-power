@@ -313,7 +313,14 @@
     <div class="sum-divider"></div>
     <div class="sum-item">
       <div class="sum-val green" id="sum-rate">-</div>
-      <div class="sum-lbl">목표 달성률</div>
+      <div class="sum-lbl" style="display:flex; align-items:center; gap:5px;">
+        목표 달성률
+        <button onclick="openTargetModal()"
+          style="background:none; border:1px solid #475569; border-radius:4px;
+                 color:#94a3b8; font-size:10px; padding:1px 5px; cursor:pointer; line-height:1.4;">
+          수정
+        </button>
+      </div>
     </div>
     <div class="sum-divider"></div>
     <div class="sum-item">
@@ -355,6 +362,28 @@
       <div class="modal-name" id="modal-name"></div>
       <div class="modal-phone" id="modal-phone"></div>
       <button class="modal-close" onclick="closeCallModal()">닫기</button>
+    </div>
+  </div>
+
+  <!-- 목표 득표수 수정 모달 -->
+  <div class="modal-bg" id="target-modal" onclick="closeTargetModal()">
+    <div class="modal-box" onclick="event.stopPropagation()" style="min-width:300px;">
+      <div class="modal-name" style="margin-bottom:8px;">목표 득표수 수정</div>
+      <div style="font-size:13px; color:#94a3b8; margin-bottom:16px;">
+        현재: <span id="target-current" style="color:#fff; font-weight:700;"></span>표
+      </div>
+      <input type="number" id="target-input" inputmode="numeric"
+        placeholder="새 목표 득표수"
+        style="width:100%; padding:10px 14px; border-radius:8px; border:1px solid #475569;
+               background:#0f172a; color:#fff; font-size:16px; text-align:center; outline:none;">
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button class="modal-close" onclick="closeTargetModal()" style="flex:1;">취소</button>
+        <button onclick="saveTargetVotes()"
+          style="flex:2; padding:8px 24px; border-radius:8px; border:none; cursor:pointer;
+                 background:var(--party-primary,#3b82f6); color:#fff; font-size:14px; font-weight:700;">
+          저장
+        </button>
+      </div>
     </div>
   </div>
 
@@ -759,6 +788,29 @@
   }
   function closeCallModal() {
     document.getElementById('call-modal').classList.remove('open')
+  }
+
+  // ── 목표 득표수 수정 ─────────────────────────────────
+  function openTargetModal() {
+    document.getElementById('target-current').textContent = formatNumber(camp.target_votes || 0)
+    document.getElementById('target-input').value = camp.target_votes || ''
+    document.getElementById('target-modal').classList.add('open')
+    setTimeout(() => document.getElementById('target-input').focus(), 100)
+  }
+  function closeTargetModal() {
+    document.getElementById('target-modal').classList.remove('open')
+  }
+  async function saveTargetVotes() {
+    const val = parseInt(document.getElementById('target-input').value, 10)
+    if (isNaN(val) || val < 0) { showToast('올바른 숫자를 입력하세요.', 'error'); return }
+
+    const { error } = await db.from('camps').update({ target_votes: val }).eq('id', camp.id)
+    if (error) { showToast('저장 실패: ' + error.message, 'error'); return }
+
+    camp.target_votes = val
+    closeTargetModal()
+    showToast(`목표 득표수가 ${formatNumber(val)}표로 변경됐습니다.`)
+    await refreshDashboard()
   }
 
   // ── 탭 전환 ─────────────────────────────────────────
