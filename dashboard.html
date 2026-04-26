@@ -302,6 +302,16 @@
     </div>
     <div class="sum-divider"></div>
     <div class="sum-item">
+      <div class="sum-val" id="sum-dang" style="color:#fbbf24;">-</div>
+      <div class="sum-lbl">당원</div>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-item">
+      <div class="sum-val" id="sum-anshim" style="color:#34d399;">-</div>
+      <div class="sum-lbl">안심번호</div>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-item">
       <div class="sum-val green" id="sum-rate">-</div>
       <div class="sum-lbl">목표 달성률</div>
     </div>
@@ -611,15 +621,19 @@
   // ── 전체 요약 ────────────────────────────────────────
   function renderSummary(latest) {
     const rows     = Object.values(latest)
-    const total    = rows.reduce((s, r) => s + r.vote_count, 0)
+    const total    = rows.reduce((s, r) => s + r.vote_count,   0)
+    const dang     = rows.reduce((s, r) => s + r.dang_count,   0)
+    const anshim   = rows.reduce((s, r) => s + r.anshim_count, 0)
     const reported = rows.length
     const unreport = Math.max(0, allDongs.length - reported)
     const rate     = camp.target_votes > 0
       ? Math.round(total / camp.target_votes * 100) + '%' : '-'
 
-    document.getElementById('sum-total').textContent    = formatNumber(total)
-    document.getElementById('sum-rate').textContent     = rate
-    document.getElementById('sum-reported').textContent = `${reported} / ${allDongs.length} 동`
+    document.getElementById('sum-total').textContent      = formatNumber(total)
+    document.getElementById('sum-dang').textContent       = formatNumber(dang)
+    document.getElementById('sum-anshim').textContent     = formatNumber(anshim)
+    document.getElementById('sum-rate').textContent       = rate
+    document.getElementById('sum-reported').textContent   = `${reported} / ${allDongs.length} 동`
     document.getElementById('sum-unreported').textContent = unreport + ' 동'
   }
 
