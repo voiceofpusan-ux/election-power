@@ -349,6 +349,7 @@
     <button class="tab-btn"        onclick="switchTab('fieldworker')">투표현황보고자 통계</button>
     <button class="tab-btn"        onclick="switchTab('trend')">시간별 추세</button>
     <button class="tab-btn"        onclick="switchTab('low')">저조 동 독려</button>
+    <button class="tab-btn"        onclick="switchTab('closing')">🏁 개표마감</button>
   </div>
 
   <!-- 탭 1: 실시간 현황 -->
@@ -459,6 +460,66 @@
     <div class="reporter-wrap">
       <div class="chart-card">
         <canvas id="trend-chart" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 탭 6: 개표마감 -->
+  <div class="tab-pane" id="pane-closing">
+    <div class="reporter-wrap">
+      <div style="display:flex; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+        <div style="background:#1e293b; border:1px solid #334155; border-radius:10px;
+                    padding:12px 24px; text-align:center; flex:1; min-width:110px;">
+          <div style="font-size:22px; font-weight:700; color:#4ade80;" id="closing-count-done">0</div>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">마감완료</div>
+        </div>
+        <div style="background:#1e293b; border:1px solid #334155; border-radius:10px;
+                    padding:12px 24px; text-align:center; flex:1; min-width:110px;">
+          <div style="font-size:22px; font-weight:700; color:#f87171;" id="closing-count-remain">0</div>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">미마감</div>
+        </div>
+      </div>
+      <table class="reporter-table">
+        <thead>
+          <tr>
+            <th>동명</th>
+            <th>단위</th>
+            <th>마감 상태</th>
+            <th>마감 시각</th>
+            <th>담당자</th>
+            <th>처리</th>
+          </tr>
+        </thead>
+        <tbody id="closing-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 개표마감 제출 모달 -->
+  <div class="modal-bg" id="closing-modal" onclick="closeClosingModal()">
+    <div class="modal-box" onclick="event.stopPropagation()" style="min-width:300px; text-align:left;">
+      <div class="modal-name" style="margin-bottom:4px;">🏁 개표마감 제출</div>
+      <div id="closing-modal-dong" style="font-size:13px; color:#94a3b8; margin-bottom:18px;"></div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px; color:#94a3b8; margin-bottom:6px;">담당자 이름</div>
+        <input type="text" id="closing-modal-name" placeholder="홍길동" maxlength="20"
+               style="width:100%; height:42px; background:#0f172a; border:1px solid #475569;
+                      border-radius:8px; color:#fff; padding:0 12px; font-size:14px; outline:none;">
+      </div>
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px; color:#94a3b8; margin-bottom:6px;">전화번호</div>
+        <input type="tel" id="closing-modal-phone" placeholder="010-0000-0000"
+               inputmode="numeric" maxlength="13"
+               style="width:100%; height:42px; background:#0f172a; border:1px solid #475569;
+                      border-radius:8px; color:#fff; padding:0 12px; font-size:14px; outline:none;">
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button onclick="closeClosingModal()" class="modal-close" style="flex:1;">취소</button>
+        <button onclick="confirmClosingSubmit()"
+                style="flex:2; height:40px; border-radius:8px; border:none;
+                       background:#dc2626; color:#fff; font-size:14px; font-weight:700; cursor:pointer;">
+          마감 제출
+        </button>
       </div>
     </div>
   </div>
@@ -815,7 +876,7 @@
 
   // ── 탭 전환 ─────────────────────────────────────────
   function switchTab(tab) {
-    const names = ['realtime', 'reporter', 'fieldworker', 'trend', 'low']
+    const names = ['realtime', 'reporter', 'fieldworker', 'trend', 'low', 'closing']
     document.querySelectorAll('.tab-btn').forEach((btn, i) => {
       btn.classList.toggle('active', names[i] === tab)
     })
@@ -826,6 +887,111 @@
     if (tab === 'fieldworker') renderFieldWorkerStats()
     if (tab === 'trend')       renderTrendChart()
     if (tab === 'low')         renderLowPanel()
+    if (tab === 'closing')     renderClosingTab()
+  }
+
+  // ── 개표마감 탭 ─────────────────────────────────────
+  let closingsData      = {}   // dong → closing record
+  let pendingClosingDong = null
+
+  async function renderClosingTab() {
+    const { data } = await db
+      .from('closings').select('*')
+      .eq('camp_id', camp.id).eq('cancelled', false)
+      .order('closed_at', { ascending: false })
+
+    closingsData = {}
+    ;(data || []).forEach(c => { if (!closingsData[c.dong]) closingsData[c.dong] = c })
+    renderClosingTable()
+  }
+
+  function renderClosingTable() {
+    const tbody = document.getElementById('closing-body')
+    tbody.innerHTML = ''
+    let doneCount = 0
+
+    const sorted = [...allDongs].sort((a, b) => {
+      const aHas = !!closingsData[a], bHas = !!closingsData[b]
+      if (aHas !== bHas) return aHas ? -1 : 1
+      return a.localeCompare(b)
+    })
+
+    sorted.forEach(dong => {
+      const c    = closingsData[dong]
+      const unit = getUnitForDong(dong)
+      if (c) doneCount++
+      const tr = document.createElement('tr')
+      const escapedDong = dong.replace(/'/g, "\\'")
+      tr.innerHTML = `
+        <td class="dong-name">${dong}</td>
+        <td>${unit ? `<span class="unit-badge">${unit}</span>` : '-'}</td>
+        <td style="font-weight:700; color:${c ? '#4ade80' : '#f87171'};">
+          ${c ? '✅ 마감완료' : '⏳ 진행 중'}
+        </td>
+        <td style="color:#94a3b8; font-size:12px;">${c ? formatTime(c.closed_at) : '-'}</td>
+        <td style="font-size:12px; color:#94a3b8;">${c ? c.reporter_name : '-'}</td>
+        <td>
+          ${c
+            ? `<button class="call-btn" onclick="cancelDongClosing('${c.id}','${escapedDong}')"
+                       style="background:#dc2626;">마감취소</button>`
+            : `<button class="call-btn" onclick="openClosingModal('${escapedDong}')">마감 제출</button>`
+          }
+        </td>
+      `
+      tbody.appendChild(tr)
+    })
+
+    document.getElementById('closing-count-done').textContent   = doneCount
+    document.getElementById('closing-count-remain').textContent = allDongs.length - doneCount
+  }
+
+  function openClosingModal(dong) {
+    pendingClosingDong = dong
+    document.getElementById('closing-modal-dong').textContent = `동: ${dong}`
+    document.getElementById('closing-modal-name').value  = ''
+    document.getElementById('closing-modal-phone').value = ''
+    document.getElementById('closing-modal').classList.add('open')
+  }
+
+  function closeClosingModal() {
+    document.getElementById('closing-modal').classList.remove('open')
+    pendingClosingDong = null
+  }
+
+  document.getElementById('closing-modal-phone')?.addEventListener('input', e => {
+    e.target.value = formatPhone(e.target.value)
+  })
+
+  async function confirmClosingSubmit() {
+    const name  = document.getElementById('closing-modal-name').value.trim()
+    const phone = document.getElementById('closing-modal-phone').value.trim()
+    const dong  = pendingClosingDong
+    if (!name || name.length < 2) { alert('담당자 이름을 2자 이상 입력하세요.'); return }
+    if (!isValidPhone(phone))     { alert('전화번호를 확인하세요. (010-XXXX-XXXX)'); return }
+
+    const { data, error } = await db.from('closings')
+      .insert({ camp_id: camp.id, dong, reporter_name: name, reporter_phone: phone })
+      .select().single()
+
+    if (error) { alert('오류: ' + error.message); return }
+
+    closingsData[dong] = data
+    closeClosingModal()
+    renderClosingTable()
+    showToast(`[${dong}] 개표마감 제출됐습니다.`)
+  }
+
+  async function cancelDongClosing(closingId, dong) {
+    if (!confirm(`[${dong}] 개표마감을 취소하시겠습니까?`)) return
+
+    const { error } = await db.from('closings')
+      .update({ cancelled: true }).eq('id', closingId)
+
+    if (error) { alert('오류: ' + error.message); return }
+
+    delete closingsData[dong]
+    renderClosingTable()
+    showToast(`[${dong}] 개표마감이 취소됐습니다.`)
   }
 
   // ── 담당자별 통계 ────────────────────────────────────
