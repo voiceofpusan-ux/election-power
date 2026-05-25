@@ -1,4 +1,4 @@
-<!-- 본선 전용 투표수 입력 화면 (사전투표/당일투표 구분, 개표마감 항상 표시) -->
+<!-- 본선 전용 투표수 입력 화면 (이름/전화번호/동/투표수만 입력, 개표마감 상단 고정) -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -32,7 +32,7 @@
     <span id="header-party" class="party-tag"></span>
   </header>
 
-  <!-- 개표마감 (본선 전용 — 항상 표시, 폼 위에 배치) -->
+  <!-- 개표마감 (항상 표시, 폼 위에 배치) -->
   <div class="card" id="closing-card">
     <h3 style="font-size:14px; font-weight:700; color:#555; margin-bottom:12px;">🏁 개표마감</h3>
     <div id="closing-status" style="margin-bottom:12px; font-size:14px;"></div>
@@ -79,31 +79,6 @@
     </div>
 
     <div class="form-group">
-      <label>투표현황보고자</label>
-      <input type="text" id="inp-field-worker" placeholder="현장에서 투표현황을 보고한 분 이름"
-             maxlength="20" list="fw-datalist" autocomplete="off" lang="ko">
-      <datalist id="fw-datalist"></datalist>
-    </div>
-
-    <div class="form-group">
-      <label>투표 구분</label>
-      <div style="display:flex; gap:8px; margin-top:4px;">
-        <button type="button" id="btn-type-dangi"
-                onclick="selectVoteType('당일투표')"
-                style="flex:1; height:48px; border-radius:10px; border:2px solid #004EA2;
-                       background:#004EA2; color:#fff; font-size:14px; font-weight:700; cursor:pointer;">
-          당일투표
-        </button>
-        <button type="button" id="btn-type-saejeon"
-                onclick="selectVoteType('사전투표')"
-                style="flex:1; height:48px; border-radius:10px; border:2px solid #e0e0e0;
-                       background:#fff; color:#888; font-size:14px; font-weight:700; cursor:pointer;">
-          사전투표
-        </button>
-      </div>
-    </div>
-
-    <div class="form-group">
       <label>투표자수</label>
       <input type="number" id="inp-votes" placeholder="0"
              inputmode="numeric" max="99999">
@@ -115,33 +90,11 @@
   </div>
 
   <!-- 실적 보기 버튼 -->
-  <div style="margin: 0 12px 8px; display:flex; gap:8px;">
-    <button class="btn btn-primary" onclick="openRanking('reporter')"
-            style="background:#dc2626; flex:1;">
+  <div style="margin: 0 12px 8px;">
+    <button class="btn btn-primary" onclick="openRanking()"
+            style="background:#dc2626; width:100%;">
       📊 본부입력담당자 실적
     </button>
-    <button class="btn btn-primary" onclick="openRanking('fieldworker')"
-            style="background:#7c3aed; flex:1;">
-      📊 투표현황보고자 실적
-    </button>
-  </div>
-
-  <!-- 차감 동 선택 모달 -->
-  <div id="deduct-modal" style="display:none; position:fixed; inset:0;
-    background:rgba(0,0,0,0.55); z-index:999; align-items:center; justify-content:center;">
-    <div style="background:#fff; border-radius:16px; max-width:340px; width:90%; padding:24px;">
-      <h3 style="font-size:15px; font-weight:700; margin-bottom:8px;">어느 동에서 차감할까요?</h3>
-      <p style="font-size:13px; color:#888; margin-bottom:16px;">
-        차감량: <strong id="deduct-amount" style="color:#dc2626;"></strong>
-      </p>
-      <select id="deduct-dong-sel" style="width:100%; height:44px; font-size:15px;
-        border:1.5px solid #e0e0e0; border-radius:8px; padding:0 12px; margin-bottom:16px;">
-      </select>
-      <div style="display:flex; gap:8px;">
-        <button id="btn-deduct-cancel" class="btn btn-secondary" style="flex:1;">취소</button>
-        <button id="btn-deduct-confirm" class="btn btn-primary" style="flex:2;">확인</button>
-      </div>
-    </div>
   </div>
 
   <!-- 실적 모달 -->
@@ -150,7 +103,7 @@
     <div style="background:#fff; border-radius:16px; max-width:480px; margin:0 auto;">
       <div style="padding:16px 20px; border-bottom:1px solid #eee;
                   display:flex; justify-content:space-between; align-items:center;">
-        <span id="ranking-title" style="font-weight:700; font-size:15px;">📊 담당자별 실적</span>
+        <span style="font-weight:700; font-size:15px;">📊 본부입력담당자 실적</span>
         <button onclick="closeRanking()"
                 style="border:none; background:none; font-size:20px; cursor:pointer; color:#888;">✕</button>
       </div>
@@ -177,26 +130,10 @@
 <script src="js/utils.js"></script>
 <script src="js/address.js"></script>
 <script>
-  let camp          = null
-  let lastVoteCount = null
+  let camp           = null
   let currentClosing = null
-  let voteType       = '당일투표'   // '당일투표' | '사전투표'
   let reporterMap    = {}
   let selectedPhone  = null
-
-  function selectVoteType(type) {
-    voteType = type
-    const primary = camp?.party === 'people' ? '#C9151E' : '#004EA2'
-    const btnDangi   = document.getElementById('btn-type-dangi')
-    const btnSaejeon = document.getElementById('btn-type-saejeon')
-    if (type === '당일투표') {
-      btnDangi.style.cssText   = `flex:1; height:48px; border-radius:10px; border:2px solid ${primary}; background:${primary}; color:#fff; font-size:14px; font-weight:700; cursor:pointer;`
-      btnSaejeon.style.cssText = `flex:1; height:48px; border-radius:10px; border:2px solid #e0e0e0; background:#fff; color:#888; font-size:14px; font-weight:700; cursor:pointer;`
-    } else {
-      btnSaejeon.style.cssText = `flex:1; height:48px; border-radius:10px; border:2px solid ${primary}; background:${primary}; color:#fff; font-size:14px; font-weight:700; cursor:pointer;`
-      btnDangi.style.cssText   = `flex:1; height:48px; border-radius:10px; border:2px solid #e0e0e0; background:#fff; color:#888; font-size:14px; font-weight:700; cursor:pointer;`
-    }
-  }
 
   // ── 초기화 ────────────────────────────────────────
   async function init() {
@@ -210,13 +147,11 @@
 
       camp = data
       renderCamp()
-      selectVoteType('당일투표')
       await loadDongOptions()
       await loadReporterList()
       restoreInputs()
-      loadFieldWorkerNames()
       await loadMyHistory()
-      await loadClosingStatus()   // 본선 전용 — 항상 로드
+      await loadClosingStatus()
 
       document.getElementById('loading').style.display = 'none'
       document.getElementById('main').style.display = 'block'
@@ -306,10 +241,10 @@
   function unlockPhone() {
     selectedPhone = null
     const phoneEl = document.getElementById('inp-phone')
-    phoneEl.value        = ''
-    phoneEl.readOnly     = false
-    phoneEl.style.background = ''
-    phoneEl.style.color      = ''
+    phoneEl.value             = ''
+    phoneEl.readOnly          = false
+    phoneEl.style.background  = ''
+    phoneEl.style.color       = ''
     document.getElementById('phone-edit-btn').style.display = 'none'
     phoneEl.focus()
   }
@@ -326,29 +261,6 @@
     }
   }
 
-  // ── 투표현황보고자 이름 목록 ─────────────────────
-  function loadFieldWorkerNames() {
-    const saved = JSON.parse(localStorage.getItem(`cv_fw_names_${camp.slug}`) || '[]')
-    const dl    = document.getElementById('fw-datalist')
-    dl.innerHTML = ''
-    saved.forEach(name => {
-      const opt = document.createElement('option')
-      opt.value = name
-      dl.appendChild(opt)
-    })
-    const input = document.getElementById('inp-field-worker')
-    if (saved.length > 0 && !input.value) input.value = saved[0]
-  }
-
-  function saveFieldWorkerName(name) {
-    if (!name) return
-    const key   = `cv_fw_names_${camp.slug}`
-    const saved = JSON.parse(localStorage.getItem(key) || '[]')
-    const next  = [name, ...saved.filter(n => n !== name)].slice(0, 15)
-    localStorage.setItem(key, JSON.stringify(next))
-    loadFieldWorkerNames()
-  }
-
   // ── 입력값 복원 (localStorage) ───────────────────
   function restoreInputs() {
     const saved = JSON.parse(localStorage.getItem(`cv_input_${camp.slug}`) || '{}')
@@ -358,24 +270,8 @@
       if (!selectedPhone && saved.phone)
         document.getElementById('inp-phone').value = saved.phone
     }
-    if (saved.dong) {
+    if (saved.dong)
       document.getElementById('inp-dong').value = saved.dong
-      loadLastVoteCount(selectedPhone || saved.phone, saved.dong)
-    }
-  }
-
-  // ── 이전 제출값 로드 ─────────────────────────────
-  async function loadLastVoteCount(phone, dong) {
-    if (!phone || !dong) return
-    const { data } = await db
-      .from('submissions')
-      .select('vote_count')
-      .eq('camp_id', camp.id)
-      .eq('reporter_phone', phone)
-      .eq('dong', dong)
-      .order('submitted_at', { ascending: false })
-      .limit(1)
-    if (data && data.length > 0) lastVoteCount = data[0].vote_count
   }
 
   // ── 제출 이력 로드 ───────────────────────────────
@@ -385,7 +281,7 @@
 
     const { data } = await db
       .from('submissions')
-      .select('dong, vote_count, vote_type, field_worker_name, submitted_at')
+      .select('dong, vote_count, submitted_at')
       .eq('camp_id', camp.id)
       .eq('reporter_phone', phone)
       .order('submitted_at', { ascending: false })
@@ -398,23 +294,15 @@
     data.forEach(row => {
       const li = document.createElement('li')
       li.className = 'history-item'
-      const isSaejeon = row.vote_type === '사전투표'
-      const typeTag = isSaejeon
-        ? `<span style="font-size:10px; background:#e0f2fe; color:#0369a1; border-radius:4px; padding:1px 5px; margin-right:4px;">사전투표</span>`
-        : `<span style="font-size:10px; background:#fef3c7; color:#92400e; border-radius:4px; padding:1px 5px; margin-right:4px;">당일투표</span>`
-      const workerLabel = row.field_worker_name
-        ? `<span style="font-size:11px; color:#555;"> · ${row.field_worker_name}</span>`
-        : ''
-      const escapedDong   = row.dong.replace(/'/g, "\\'")
-      const escapedWorker = (row.field_worker_name || '').replace(/'/g, "\\'")
+      const escapedDong = row.dong.replace(/'/g, "\\'")
       const cancelBtn = row.vote_count > 0
-        ? `<button onclick="cancelSubmission(this,'${escapedDong}',${row.vote_count},'${row.vote_type}','${escapedWorker}')"
+        ? `<button onclick="cancelSubmission(this,'${escapedDong}',${row.vote_count})"
                    style="font-size:11px; padding:2px 8px; border-radius:4px; border:1px solid #dc2626;
                           background:#fff; color:#dc2626; cursor:pointer; white-space:nowrap; flex-shrink:0;">취소</button>`
         : `<span style="font-size:11px; color:#94a3b8; flex-shrink:0;">보정됨</span>`
       li.innerHTML = `
         <span class="history-time">${formatTime(row.submitted_at)}</span>
-        <span>${typeTag}${row.dong}${workerLabel}</span>
+        <span>${row.dong}</span>
         <span style="display:flex; align-items:center; gap:6px;">
           <span class="history-votes">${formatNumber(row.vote_count)}표</span>
           ${cancelBtn}
@@ -432,7 +320,6 @@
 
     const name        = document.getElementById('inp-name').value.trim()
     const dong        = document.getElementById('inp-dong').value
-    const fieldWorker = document.getElementById('inp-field-worker').value.trim()
     const votesRaw    = document.getElementById('inp-votes').value
     const votes       = parseInt(votesRaw, 10)
     const actualPhone = selectedPhone || document.getElementById('inp-phone').value.trim()
@@ -443,8 +330,6 @@
       return showFormError('전화번호를 확인하세요. (010-XXXX-XXXX)')
     if (!dong)
       return showFormError('담당 동을 선택하세요.')
-    if (!fieldWorker)
-      return showFormError('투표현황보고자 이름을 입력하세요.')
     if (isNaN(votes) || votes === 0)
       return showFormError('투표자수를 입력하세요.')
     if (votes < 0)
@@ -453,63 +338,25 @@
     const blocked = await checkDuplicatePhone(name, actualPhone)
     if (blocked) return
 
-    await doInsert(name, actualPhone, dong, votes, voteType, fieldWorker)
-  }
-
-  // ── 차감 동 선택 모달 ─────────────────────────────
-  async function openDeductModal(name, phone, votes, fieldWorker) {
-    const { data } = await db
-      .from('submissions')
-      .select('dong')
-      .eq('camp_id', camp.id)
-      .eq('reporter_phone', phone)
-      .order('submitted_at', { ascending: false })
-
-    if (!data || data.length === 0) {
-      showFormError('제출 이력이 없어 차감할 수 없습니다.')
-      return
-    }
-
-    const dongs = [...new Set(data.map(r => r.dong))]
-    const sel = document.getElementById('deduct-dong-sel')
-    sel.innerHTML = '<option value="">동 선택</option>'
-    dongs.forEach(d => {
-      const o = document.createElement('option')
-      o.value = d; o.textContent = d
-      sel.appendChild(o)
-    })
-
-    document.getElementById('deduct-amount').textContent = `${Math.abs(votes)}표 차감`
-    document.getElementById('deduct-modal').style.display = 'flex'
-
-    document.getElementById('btn-deduct-confirm').onclick = async () => {
-      const selectedDong = sel.value
-      if (!selectedDong) { alert('동을 선택하세요.'); return }
-      document.getElementById('deduct-modal').style.display = 'none'
-      await doInsert(name, phone, selectedDong, votes, voteType, fieldWorker)
-    }
-    document.getElementById('btn-deduct-cancel').onclick = () => {
-      document.getElementById('deduct-modal').style.display = 'none'
-    }
+    await doInsert(name, actualPhone, dong, votes)
   }
 
   // ── 실제 INSERT ───────────────────────────────────
-  async function doInsert(name, phone, dong, votes, type = '당일투표', fieldWorker = '') {
+  async function doInsert(name, phone, dong, votes) {
     const btn = document.getElementById('btn-submit')
-    btn.disabled = true
+    btn.disabled    = true
     btn.textContent = '제출 중...'
 
     try {
       const ip = await getClientIP()
       const { error } = await db.from('submissions').insert({
-        camp_id:           camp.id,
-        reporter_name:     name,
-        reporter_phone:    phone,
+        camp_id:        camp.id,
+        reporter_name:  name,
+        reporter_phone: phone,
         dong,
-        vote_count:        votes,
-        vote_type:         type,
-        field_worker_name: fieldWorker,
-        ip_address:        ip
+        vote_count:     votes,
+        vote_type:      '일반',
+        ip_address:     ip
       })
 
       if (error) throw error
@@ -517,21 +364,18 @@
       saveReporter(name, phone)
       localStorage.setItem(`cv_input_${camp.slug}`, JSON.stringify({ name, phone, dong }))
 
-      lastVoteCount = votes
       const label = votes < 0
         ? `${dong} ${formatNumber(votes)}표 차감 완료!`
         : `${dong} ${formatNumber(votes)}표 제출 완료!`
       showFormSuccess(label)
-      saveFieldWorkerName(fieldWorker)
       document.getElementById('inp-votes').value = ''
-      document.getElementById('inp-field-worker').value = ''
       await loadMyHistory()
       await loadClosingStatus()
 
     } catch (e) {
       showFormError('제출 실패: ' + (e.message || '다시 시도해주세요.'))
     } finally {
-      btn.disabled = false
+      btn.disabled    = false
       btn.textContent = '제 출'
     }
   }
@@ -554,21 +398,35 @@
     return false
   }
 
+  // ── 제출 취소 (음수 보정) ────────────────────────
+  async function cancelSubmission(btn, dong, voteCount) {
+    if (!confirm(`[${dong}] ${formatNumber(voteCount)}표를 취소하시겠습니까?\n(-${formatNumber(voteCount)}표 보정이 제출됩니다.)`)) return
+
+    const name        = document.getElementById('inp-name').value.trim()
+    const actualPhone = selectedPhone || document.getElementById('inp-phone').value.trim()
+
+    if (!name || !isValidPhone(actualPhone)) {
+      showFormError('이름과 전화번호를 먼저 입력하세요.')
+      return
+    }
+
+    btn.disabled    = true
+    btn.textContent = '처리중...'
+
+    await doInsert(name, actualPhone, dong, -voteCount)
+  }
+
   // ── 실적 모달 ─────────────────────────────────────
-  async function openRanking(type) {
-    const isFieldWorker = type === 'fieldworker'
-    document.getElementById('ranking-title').textContent =
-      isFieldWorker ? '📊 투표현황보고자 실적' : '📊 본부입력담당자 실적'
+  async function openRanking() {
     document.getElementById('ranking-modal').style.display = 'block'
     document.getElementById('ranking-list').innerHTML =
       '<div style="text-align:center; padding:24px; color:#888;">불러오는 중...</div>'
 
-    const myPhone  = selectedPhone || document.getElementById('inp-phone').value.trim()
-    const myFwName = document.getElementById('inp-field-worker').value.trim()
+    const myPhone = selectedPhone || document.getElementById('inp-phone').value.trim()
 
     const { data } = await db
       .from('submissions')
-      .select('reporter_name, reporter_phone, field_worker_name, dong, vote_count, vote_type, submitted_at')
+      .select('reporter_name, reporter_phone, dong, vote_count, submitted_at')
       .eq('camp_id', camp.id)
       .order('submitted_at', { ascending: false })
 
@@ -580,19 +438,11 @@
 
     const map = {}
     data.forEach(row => {
-      const key = isFieldWorker
-        ? (row.field_worker_name || '(미입력)')
-        : row.reporter_phone
+      const key = row.reporter_phone
       if (!map[key]) {
-        map[key] = {
-          name:  isFieldWorker ? (row.field_worker_name || '(미입력)') : row.reporter_name,
-          id:    key,
-          dong:  row.dong, votes: 0, dangiVotes: 0, saejeonVotes: 0, time: row.submitted_at
-        }
+        map[key] = { name: row.reporter_name, id: key, dong: row.dong, votes: 0, time: row.submitted_at }
       }
       map[key].votes += row.vote_count
-      if (row.vote_type === '사전투표') map[key].saejeonVotes += row.vote_count
-      else                              map[key].dangiVotes   += row.vote_count
       if (row.submitted_at > map[key].time) {
         map[key].time = row.submitted_at
         map[key].dong = row.dong
@@ -614,13 +464,9 @@
     }
 
     sorted.forEach((r, i) => {
-      const isMe  = isFieldWorker ? r.name === myFwName : r.id === myPhone
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`
+      const isMe    = r.id === myPhone
+      const medal   = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`
       const primary = camp?.party === 'people' ? '#C9151E' : '#004EA2'
-      const sub = isFieldWorker
-        ? `<span style="font-size:10px; background:#fef3c7; color:#92400e; border-radius:3px; padding:1px 5px; margin-right:3px;">당일 ${formatNumber(r.dangiVotes)}</span>` +
-          `<span style="font-size:10px; background:#e0f2fe; color:#0369a1; border-radius:3px; padding:1px 5px;">사전 ${formatNumber(r.saejeonVotes)}</span>`
-        : `${r.dong} · ${formatTime(r.time)}`
       const div = document.createElement('div')
       div.style.cssText = `padding:12px 20px; display:flex; align-items:center; gap:12px;
         border-bottom:1px solid #f0f0f0; background:${isMe ? '#E3F0FF' : '#fff'};`
@@ -630,7 +476,7 @@
           <div style="font-weight:${isMe ? '700' : '600'}; font-size:14px;">
             ${r.name}${isMe ? ` <span style="color:${primary}; font-size:11px;">(나)</span>` : ''}
           </div>
-          <div style="font-size:12px; color:#888; margin-top:2px;">${sub}</div>
+          <div style="font-size:12px; color:#888; margin-top:2px;">${r.dong} · ${formatTime(r.time)}</div>
         </div>
         <span style="font-size:17px; font-weight:700; color:${isMe ? primary : '#222'};">
           ${formatNumber(r.votes)}표
@@ -638,24 +484,6 @@
       `
       list.appendChild(div)
     })
-  }
-
-  // ── 제출 취소 (음수 보정) ────────────────────────
-  async function cancelSubmission(btn, dong, voteCount, voteType, fieldWorker) {
-    if (!confirm(`[${dong}] ${formatNumber(voteCount)}표를 취소하시겠습니까?\n(-${formatNumber(voteCount)}표 보정이 제출됩니다.)`)) return
-
-    const name        = document.getElementById('inp-name').value.trim()
-    const actualPhone = selectedPhone || document.getElementById('inp-phone').value.trim()
-
-    if (!name || !isValidPhone(actualPhone)) {
-      showFormError('이름과 전화번호를 먼저 입력하세요.')
-      return
-    }
-
-    btn.disabled    = true
-    btn.textContent = '처리중...'
-
-    await doInsert(name, actualPhone, dong, -voteCount, voteType, fieldWorker)
   }
 
   function closeRanking() {
@@ -766,16 +594,15 @@
     })
 
     document.getElementById('inp-dong').addEventListener('change', async () => {
-      const dong = document.getElementById('inp-dong').value
+      const dong        = document.getElementById('inp-dong').value
       const actualPhone = selectedPhone || document.getElementById('inp-phone').value
-      loadLastVoteCount(actualPhone, dong)
       await loadClosingStatus()
 
       const unitEl = document.getElementById('unit-display')
       if (dong) {
         const unit = await getUnitByDong(camp.sigungu, dong)
         if (unit) {
-          unitEl.textContent = `→ ${camp.sigungu}${unit} 선거구`
+          unitEl.textContent   = `→ ${camp.sigungu}${unit} 선거구`
           unitEl.style.display = 'block'
         } else {
           unitEl.style.display = 'none'
@@ -796,12 +623,12 @@
   }
   function showFormError(msg) {
     const el = document.getElementById('form-error')
-    el.textContent = msg
+    el.textContent  = msg
     el.style.display = 'block'
   }
   function showFormSuccess(msg) {
     const el = document.getElementById('form-success')
-    el.textContent = msg
+    el.textContent  = msg
     el.style.display = 'block'
   }
   function hideMsg() {
