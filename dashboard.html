@@ -303,12 +303,12 @@
     <div class="sum-divider"></div>
     <div class="sum-item">
       <div class="sum-val" id="sum-dang" style="color:#fbbf24;">-</div>
-      <div class="sum-lbl">당원</div>
+      <div class="sum-lbl" id="lbl-dang">당원</div>
     </div>
     <div class="sum-divider"></div>
     <div class="sum-item">
       <div class="sum-val" id="sum-anshim" style="color:#34d399;">-</div>
-      <div class="sum-lbl">안심번호</div>
+      <div class="sum-lbl" id="lbl-anshim">안심번호</div>
     </div>
     <div class="sum-divider"></div>
     <div class="sum-item">
@@ -416,8 +416,8 @@
             <th>이름</th>
             <th>단위</th>
             <th>담당 동</th>
-            <th style="color:#fbbf24;">당원</th>
-            <th style="color:#34d399;">안심번호</th>
+            <th id="rep-th-dang"   style="color:#fbbf24;">당원</th>
+            <th id="rep-th-anshim" style="color:#34d399;">안심번호</th>
             <th>합계</th>
             <th>제출 횟수</th>
             <th>마지막 보고</th>
@@ -443,8 +443,8 @@
             <th>보고자</th>
             <th>단위</th>
             <th>담당 동</th>
-            <th>당원투표</th>
-            <th>일반(안심번호)</th>
+            <th id="fw-th-dang">당원투표</th>
+            <th id="fw-th-anshim">일반(안심번호)</th>
             <th>합계</th>
             <th>보고 횟수</th>
             <th>마지막 보고</th>
@@ -536,8 +536,8 @@
             <th>#</th>
             <th>동명</th>
             <th>단위</th>
-            <th style="color:#fbbf24;">당원</th>
-            <th style="color:#34d399;">안심번호</th>
+            <th id="low-th-dang"   style="color:#fbbf24;">당원</th>
+            <th id="low-th-anshim" style="color:#34d399;">안심번호</th>
             <th>합계</th>
             <th>최근 담당자</th>
             <th>전화</th>
@@ -593,6 +593,7 @@
       dongsByUnit = await getDongsByUnit(camp.sigungu)
       allDongs    = await loadDongs(camp.sigungu)
 
+      applyBonsonLabels()
       buildUnitCards()
       await refreshDashboard()
       if (camp.election_type === '본선') {
@@ -627,9 +628,14 @@
   }
 
   function makeUnitCard(unit, dongs) {
-    const key   = unit || 'all'
-    const label = unit ? `${camp.sigungu}${unit}` : camp.sigungu
-    const div   = document.createElement('div')
+    const key        = unit || 'all'
+    const label      = unit ? `${camp.sigungu}${unit}` : camp.sigungu
+    const isBonson   = camp.election_type === '본선'
+    const dangLabel  = isBonson ? '민주당'  : '당원'
+    const anshimLabel= isBonson ? '국민의힘': '안심번호'
+    const dangColor  = isBonson ? '#3b82f6' : '#fbbf24'
+    const anshimColor= isBonson ? '#ef4444' : '#34d399'
+    const div        = document.createElement('div')
     div.className = 'unit-card'
     div.innerHTML = `
       <div class="unit-card-header">
@@ -646,9 +652,9 @@
         <thead>
           <tr>
             <th>동명</th>
-            <th style="color:#fbbf24;">당원</th>
-            <th style="color:#34d399;">안심번호</th>
-            <th>합계</th>
+            <th style="color:${dangColor};">${dangLabel}</th>
+            <th style="color:${anshimColor};">${anshimLabel}</th>
+            <th>${isBonson ? '득표차' : '합계'}</th>
             <th>입력담당자</th>
             <th>현황보고자</th>
             <th>시각</th>
@@ -671,14 +677,20 @@
     if (!data) return
 
     // 동별 전체 제출값 누적 합산 (양수+음수 모두 포함)
+    const isBonson = camp.election_type === '본선'
     const latest = {}
     data.forEach(row => {
       if (!latest[row.dong]) {
         latest[row.dong] = { ...row, vote_count: 0, dang_count: 0, anshim_count: 0 }
       }
       latest[row.dong].vote_count += row.vote_count
-      if (row.vote_type === '안심번호') latest[row.dong].anshim_count += row.vote_count
-      else                              latest[row.dong].dang_count   += row.vote_count
+      if (isBonson) {
+        if      (row.vote_type === '국민의힘') latest[row.dong].anshim_count += row.vote_count
+        else if (row.vote_type === '민주당')   latest[row.dong].dang_count   += row.vote_count
+      } else {
+        if (row.vote_type === '안심번호') latest[row.dong].anshim_count += row.vote_count
+        else                              latest[row.dong].dang_count   += row.vote_count
+      }
       // 가장 최근 제출자 이름·시간 갱신
       if (row.submitted_at > (latest[row.dong]._latestTime || '')) {
         latest[row.dong].submitted_at      = row.submitted_at
@@ -740,48 +752,41 @@
   // ── 단위 차트 ────────────────────────────────────────
   function renderUnitChart(unit, dongs, latest) {
     const key         = unit || 'all'
-    const totalVotes  = dongs.map(d => latest[d]?.vote_count  || 0)
-    const dangVotes   = dongs.map(d => latest[d]?.dang_count  || 0)
+    const isBonson    = camp.election_type === '본선'
+    const totalVotes  = dongs.map(d => latest[d]?.vote_count   || 0)
+    const dangVotes   = dongs.map(d => latest[d]?.dang_count   || 0)
     const anshimVotes = dongs.map(d => latest[d]?.anshim_count || 0)
-
-    const perDongTarget = camp.target_votes > 0
-      ? camp.target_votes / (allDongs.length || 1) : 0
-
-    // 당원 bar 색상: 합계 기준으로 미보고=빨강, 달성=초록, 진행=파랑
-    const dangColors = totalVotes.map(v =>
-      v === 0                                        ? '#ef4444' :
-      perDongTarget && v >= perDongTarget * 0.8      ? '#10b981' :
-                                                       '#3b82f6'
-    )
 
     const ctx = document.getElementById(`chart-${key}`).getContext('2d')
     if (charts[key]) charts[key].destroy()
 
+    let datasets
+    if (isBonson) {
+      // 본선: 민주당(파랑) / 국민의힘(빨강) / 득표차(동적 색)
+      const diffVotes  = dangVotes.map((d, i) => d - anshimVotes[i])
+      const diffColors = diffVotes.map(v => v > 0 ? '#3b82f6' : v < 0 ? '#ef4444' : '#94a3b8')
+      datasets = [
+        { label: '민주당',  data: dangVotes,            backgroundColor: '#3b82f6', borderRadius: 4 },
+        { label: '국민의힘', data: anshimVotes,           backgroundColor: '#ef4444', borderRadius: 4 },
+        { label: '득표차',  data: diffVotes.map(Math.abs), backgroundColor: diffColors, borderRadius: 4 }
+      ]
+    } else {
+      // 경선: 당원(동적색) / 안심번호(주황) / 합계(회색)
+      const perDongTarget = camp.target_votes > 0 ? camp.target_votes / (allDongs.length || 1) : 0
+      const dangColors    = totalVotes.map(v =>
+        v === 0                                   ? '#ef4444' :
+        perDongTarget && v >= perDongTarget * 0.8 ? '#10b981' : '#3b82f6'
+      )
+      datasets = [
+        { label: '당원',   data: dangVotes,   backgroundColor: dangColors, borderRadius: 4 },
+        { label: '안심번호', data: anshimVotes, backgroundColor: '#f97316',  borderRadius: 4 },
+        { label: '합계',   data: totalVotes,  backgroundColor: '#64748b',  borderRadius: 4 }
+      ]
+    }
+
     charts[key] = new Chart(ctx, {
       type: 'bar',
-      data: {
-        labels: dongs,
-        datasets: [
-          {
-            label: '당원',
-            data: dangVotes,
-            backgroundColor: dangColors,
-            borderRadius: 4
-          },
-          {
-            label: '안심번호',
-            data: anshimVotes,
-            backgroundColor: '#f97316',
-            borderRadius: 4
-          },
-          {
-            label: '합계',
-            data: totalVotes,
-            backgroundColor: '#64748b',
-            borderRadius: 4
-          }
-        ]
-      },
+      data: { labels: dongs, datasets },
       options: {
         responsive: true,
         plugins: {
@@ -798,15 +803,8 @@
           }
         },
         scales: {
-          x: {
-            ticks: { color: '#94a3b8', font: { size: 10 } },
-            grid:  { color: '#334155' }
-          },
-          y: {
-            beginAtZero: true,
-            ticks: { color: '#94a3b8', font: { size: 10 } },
-            grid:  { color: '#334155' }
-          }
+          x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#334155' } },
+          y: { beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#334155' } }
         }
       }
     })
@@ -828,11 +826,20 @@
       const isClosed = closingsMap[dong] || false
       const tr       = document.createElement('tr')
       if (!r) tr.className = 'unreported'
+      const isBonsonT  = camp.election_type === '본선'
+      const dangColor  = isBonsonT ? '#3b82f6' : '#fbbf24'
+      const anshimColor= isBonsonT ? '#ef4444' : '#34d399'
+      const thirdVal   = r
+        ? (isBonsonT
+            ? `<span style="color:${r.dang_count >= r.anshim_count ? '#3b82f6' : '#ef4444'}; font-weight:600;">
+               ${r.dang_count >= r.anshim_count ? '+' : ''}${formatNumber(r.dang_count - r.anshim_count)}</span>`
+            : formatNumber(r.vote_count) + '표')
+        : '미보고'
       tr.innerHTML = `
         <td class="dong-name">${dong}${isClosed ? ' <span style="color:#4ade80;font-size:11px;">✅마감</span>' : ''}</td>
-        <td style="color:#fbbf24; font-weight:600;">${r ? formatNumber(r.dang_count) : '-'}</td>
-        <td style="color:#34d399; font-weight:600;">${r ? formatNumber(r.anshim_count) : '-'}</td>
-        <td class="votes">${r ? formatNumber(r.vote_count) + '표' : '미보고'}</td>
+        <td style="color:${dangColor}; font-weight:600;">${r ? formatNumber(r.dang_count)   : '-'}</td>
+        <td style="color:${anshimColor}; font-weight:600;">${r ? formatNumber(r.anshim_count) : '-'}</td>
+        <td class="${isBonsonT ? '' : 'votes'}">${thirdVal}</td>
         <td style="font-size:12px;">${r ? r.reporter_name : '-'}</td>
         <td style="font-size:12px; color:#94a3b8;">${r?.field_worker_name || '-'}</td>
         <td class="time">${r ? formatTime(r.submitted_at) : '-'}</td>
@@ -872,6 +879,25 @@
     closeTargetModal()
     showToast(`목표 득표수가 ${formatNumber(val)}표로 변경됐습니다.`)
     await refreshDashboard()
+  }
+
+  // ── 본선 라벨 일괄 적용 ──────────────────────────────
+  function applyBonsonLabels() {
+    if (camp.election_type !== '본선') return
+    document.getElementById('lbl-dang').textContent       = '민주당'
+    document.getElementById('lbl-anshim').textContent     = '국민의힘'
+    document.getElementById('sum-dang').style.color       = '#3b82f6'
+    document.getElementById('sum-anshim').style.color     = '#ef4444'
+    document.getElementById('rep-th-dang').textContent    = '민주당'
+    document.getElementById('rep-th-dang').style.color    = '#3b82f6'
+    document.getElementById('rep-th-anshim').textContent  = '국민의힘'
+    document.getElementById('rep-th-anshim').style.color  = '#ef4444'
+    document.getElementById('fw-th-dang').textContent     = '민주당'
+    document.getElementById('fw-th-anshim').textContent   = '국민의힘'
+    document.getElementById('low-th-dang').textContent    = '민주당'
+    document.getElementById('low-th-dang').style.color    = '#3b82f6'
+    document.getElementById('low-th-anshim').textContent  = '국민의힘'
+    document.getElementById('low-th-anshim').style.color  = '#ef4444'
   }
 
   // ── 탭 전환 ─────────────────────────────────────────

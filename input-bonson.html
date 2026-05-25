@@ -1,4 +1,4 @@
-<!-- 본선 전용 투표수 입력 화면 (민주당/국민의힘 동시 입력, 개표마감 상단 고정) -->
+<!-- 본선 전용 투표수 입력 화면 (민주당/국민의힘 토글, 단일 캠프) -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -6,43 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>투표수 입력 (본선)</title>
   <link rel="stylesheet" href="css/style.css">
-  <style>
-    .party-badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .badge-minjoo { background: #E3F0FF; color: #004EA2; }
-    .badge-people { background: #FFE8E8; color: #C9151E; }
-
-    .vote-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1.5px solid #e0e0e0;
-    }
-    .vote-row.minjoo { border-color: #93c5fd; background: #f0f7ff; }
-    .vote-row.people { border-color: #fca5a5; background: #fff5f5; }
-    .vote-row label  { font-size: 13px; font-weight: 700; min-width: 68px; }
-    .vote-row.minjoo label { color: #004EA2; }
-    .vote-row.people label { color: #C9151E; }
-    .vote-row input  { flex: 1; border: none; background: transparent;
-                        font-size: 18px; font-weight: 700; text-align: right;
-                        outline: none; width: 0; }
-
-    .closing-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 0;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .closing-row:last-child { border-bottom: none; }
-  </style>
 </head>
 <body>
 
@@ -60,12 +23,14 @@
 <div id="main" style="display:none;">
 
   <!-- 헤더 -->
-  <header class="camp-header" style="background:#1e3a5f;">
+  <header id="camp-header" class="camp-header" style="background:#1e3a5f;">
     <div class="label">투표수 입력 (본선)</div>
     <h1 id="header-district" style="color:#fff;"></h1>
-    <div style="margin-top:4px; display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
-      <span id="badge-minjoo" class="party-badge badge-minjoo" style="display:none;">민주당</span>
-      <span id="badge-people" class="party-badge badge-people" style="display:none;">국민의힘</span>
+    <div style="margin-top:4px; display:flex; gap:6px; justify-content:center;">
+      <span style="display:inline-block; padding:2px 10px; border-radius:12px;
+                   font-size:12px; font-weight:700; background:#E3F0FF; color:#004EA2;">민주당</span>
+      <span style="display:inline-block; padding:2px 10px; border-radius:12px;
+                   font-size:12px; font-weight:700; background:#FFE8E8; color:#C9151E;">국민의힘</span>
     </div>
   </header>
 
@@ -104,19 +69,27 @@
     </div>
 
     <div class="form-group">
-      <label>투표자수</label>
-      <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
-        <div class="vote-row minjoo" id="row-minjoo" style="display:none;">
-          <label>🔵 민주당</label>
-          <input type="number" id="inp-votes-minjoo" placeholder="0" inputmode="numeric" max="99999">
-          <span style="font-size:14px; color:#004EA2; font-weight:600;">표</span>
-        </div>
-        <div class="vote-row people" id="row-people" style="display:none;">
-          <label>🔴 국민의힘</label>
-          <input type="number" id="inp-votes-people" placeholder="0" inputmode="numeric" max="99999">
-          <span style="font-size:14px; color:#C9151E; font-weight:600;">표</span>
-        </div>
+      <label>투표 정당</label>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button type="button" id="btn-type-minjoo"
+                onclick="selectVoteType('민주당')"
+                style="flex:1; height:48px; border-radius:10px; border:2px solid #004EA2;
+                       background:#004EA2; color:#fff; font-size:14px; font-weight:700; cursor:pointer;">
+          🔵 민주당
+        </button>
+        <button type="button" id="btn-type-people"
+                onclick="selectVoteType('국민의힘')"
+                style="flex:1; height:48px; border-radius:10px; border:2px solid #e0e0e0;
+                       background:#fff; color:#888; font-size:14px; font-weight:700; cursor:pointer;">
+          🔴 국민의힘
+        </button>
       </div>
+    </div>
+
+    <div class="form-group">
+      <label>투표자수</label>
+      <input type="number" id="inp-votes" placeholder="0"
+             inputmode="numeric" max="99999">
     </div>
 
     <button class="btn btn-primary" id="btn-submit" onclick="submitVotes()"
@@ -164,37 +137,40 @@
 <script src="js/utils.js"></script>
 <script src="js/address.js"></script>
 <script>
-  // 캠프 { minjoo: campObj | null, people: campObj | null }
-  let camps         = { minjoo: null, people: null }
+  let camp          = null
+  let voteType      = '민주당'   // '민주당' | '국민의힘'
   let reporterMap   = {}
   let selectedPhone = null
 
-  // ── 초기화 ──────────────────────────────────────
+  function selectVoteType(type) {
+    voteType = type
+    const btnMinjoo = document.getElementById('btn-type-minjoo')
+    const btnPeople = document.getElementById('btn-type-people')
+    if (type === '민주당') {
+      btnMinjoo.style.cssText = 'flex:1; height:48px; border-radius:10px; border:2px solid #004EA2; background:#004EA2; color:#fff; font-size:14px; font-weight:700; cursor:pointer;'
+      btnPeople.style.cssText = 'flex:1; height:48px; border-radius:10px; border:2px solid #e0e0e0; background:#fff; color:#888; font-size:14px; font-weight:700; cursor:pointer;'
+    } else {
+      btnPeople.style.cssText = 'flex:1; height:48px; border-radius:10px; border:2px solid #C9151E; background:#C9151E; color:#fff; font-size:14px; font-weight:700; cursor:pointer;'
+      btnMinjoo.style.cssText = 'flex:1; height:48px; border-radius:10px; border:2px solid #e0e0e0; background:#fff; color:#888; font-size:14px; font-weight:700; cursor:pointer;'
+    }
+  }
+
+  // ── 초기화 ────────────────────────────────────────
   async function init() {
     const slug = getParam('slug')
     if (!slug) return showError('캠프 주소가 올바르지 않습니다.')
 
-    // -minjoo/-people 접미사를 제거해 공통 base 추출
-    const base       = slug.replace(/-(minjoo|people)$/, '')
-    const minjooSlug = `${base}-minjoo`
-    const peopleSlug = `${base}-people`
-
     try {
-      const [r1, r2] = await Promise.all([
-        db.from('camps').select('*').eq('slug', minjooSlug).maybeSingle(),
-        db.from('camps').select('*').eq('slug', peopleSlug).maybeSingle()
-      ])
+      const { data, error } = await db.from('camps').select('*').eq('slug', slug).single()
+      if (error || !data) return showError('등록된 캠프를 찾을 수 없습니다.')
+      if (!data.is_active)  return showError('현재 비활성화된 캠프입니다.')
 
-      camps.minjoo = r1.data || null
-      camps.people = r2.data || null
+      camp = data
+      document.title = `${camp.district} 투표수 입력 (본선)`
+      document.getElementById('header-district').textContent = `${camp.sido} ${camp.district}`
 
-      if (!camps.minjoo && !camps.people)
-        return showError('등록된 캠프를 찾을 수 없습니다.')
-
-      renderHeader()
-      renderVoteRows()
-      const anyCamp = camps.minjoo || camps.people
-      await loadDongOptions(anyCamp)
+      selectVoteType('민주당')
+      await loadDongOptions()
       await loadReporterList()
       restoreInputs()
       await loadMyHistory()
@@ -207,23 +183,8 @@
     }
   }
 
-  // ── 헤더 렌더 ────────────────────────────────────
-  function renderHeader() {
-    const c = camps.minjoo || camps.people
-    document.title = `${c.district} 투표수 입력 (본선)`
-    document.getElementById('header-district').textContent = `${c.sido} ${c.district}`
-    if (camps.minjoo) document.getElementById('badge-minjoo').style.display = 'inline-block'
-    if (camps.people) document.getElementById('badge-people').style.display = 'inline-block'
-  }
-
-  // ── 투표수 입력 행 표시 ──────────────────────────
-  function renderVoteRows() {
-    if (camps.minjoo) document.getElementById('row-minjoo').style.display = 'flex'
-    if (camps.people) document.getElementById('row-people').style.display = 'flex'
-  }
-
   // ── 동 드롭다운 ──────────────────────────────────
-  async function loadDongOptions(camp) {
+  async function loadDongOptions() {
     const dongs = await loadDongs(camp.sigungu)
     const sel   = document.getElementById('inp-dong')
     dongs.forEach(d => {
@@ -233,26 +194,21 @@
     })
   }
 
-  // ── 담당자 목록 (양당 DB + localStorage 병합) ────
+  // ── 본부입력담당자 목록 ──────────────────────────
   async function loadReporterList() {
-    const campIds = [camps.minjoo?.id, camps.people?.id].filter(Boolean)
+    const { data } = await db
+      .from('submissions')
+      .select('reporter_name, reporter_phone')
+      .eq('camp_id', camp.id)
+      .order('submitted_at', { ascending: false })
+
     reporterMap = {}
+    ;(data || []).forEach(row => {
+      if (!reporterMap[row.reporter_name]) reporterMap[row.reporter_name] = row.reporter_phone
+    })
 
-    for (const id of campIds) {
-      const { data } = await db
-        .from('submissions')
-        .select('reporter_name, reporter_phone')
-        .eq('camp_id', id)
-        .order('submitted_at', { ascending: false })
-      ;(data || []).forEach(row => {
-        if (!reporterMap[row.reporter_name]) reporterMap[row.reporter_name] = row.reporter_phone
-      })
-    }
-
-    const anyCamp = camps.minjoo || camps.people
-    const saved = JSON.parse(localStorage.getItem(`cv_reporters_${anyCamp.slug.replace(/-(minjoo|people)$/, '')}`) || '[]')
+    const saved = JSON.parse(localStorage.getItem(`cv_reporters_${camp.slug}`) || '[]')
     saved.forEach(({ name, phone }) => { if (!reporterMap[name]) reporterMap[name] = phone })
-
     refreshNameDatalist()
   }
 
@@ -296,8 +252,7 @@
 
   function saveReporter(name, phone) {
     if (!name || !phone) return
-    const anyCamp = camps.minjoo || camps.people
-    const key  = `cv_reporters_${anyCamp.slug.replace(/-(minjoo|people)$/, '')}`
+    const key  = `cv_reporters_${camp.slug}`
     const list = JSON.parse(localStorage.getItem(key) || '[]')
     localStorage.setItem(key, JSON.stringify([{ name, phone }, ...list.filter(r => r.name !== name)].slice(0, 20)))
     if (!reporterMap[name]) { reporterMap[name] = phone; refreshNameDatalist() }
@@ -305,8 +260,7 @@
 
   // ── 입력값 복원 ──────────────────────────────────
   function restoreInputs() {
-    const anyCamp = camps.minjoo || camps.people
-    const saved   = JSON.parse(localStorage.getItem(`cv_input_${anyCamp.slug.replace(/-(minjoo|people)$/, '')}`) || '{}')
+    const saved = JSON.parse(localStorage.getItem(`cv_input_${camp.slug}`) || '{}')
     if (saved.name) {
       document.getElementById('inp-name').value = saved.name
       applyReporterSelection(saved.name)
@@ -315,44 +269,40 @@
     if (saved.dong) document.getElementById('inp-dong').value = saved.dong
   }
 
-  // ── 제출 이력 (양당 합산) ────────────────────────
+  // ── 제출 이력 로드 ───────────────────────────────
   async function loadMyHistory() {
     const phone = selectedPhone || document.getElementById('inp-phone').value
     if (!phone || !isValidPhone(phone)) return
 
-    const rows = []
-    for (const [party, camp] of Object.entries(camps)) {
-      if (!camp) continue
-      const { data } = await db
-        .from('submissions')
-        .select('dong, vote_count, submitted_at')
-        .eq('camp_id', camp.id)
-        .eq('reporter_phone', phone)
-        .order('submitted_at', { ascending: false })
-        .limit(10)
-      ;(data || []).forEach(r => rows.push({ ...r, party }))
-    }
-    if (rows.length === 0) return
+    const { data } = await db
+      .from('submissions')
+      .select('dong, vote_count, vote_type, submitted_at')
+      .eq('camp_id', camp.id)
+      .eq('reporter_phone', phone)
+      .order('submitted_at', { ascending: false })
+      .limit(15)
 
-    rows.sort((a, b) => b.submitted_at.localeCompare(a.submitted_at))
+    if (!data || data.length === 0) return
 
     const list = document.getElementById('history-list')
     list.innerHTML = ''
-    rows.slice(0, 15).forEach(row => {
-      const li    = document.createElement('li')
+    data.forEach(row => {
+      const li = document.createElement('li')
       li.className = 'history-item'
-      const badge = row.party === 'minjoo'
-        ? `<span class="party-badge badge-minjoo" style="font-size:10px;">민주당</span>`
-        : `<span class="party-badge badge-people" style="font-size:10px;">국민의힘</span>`
+      const isMinjoo = row.vote_type === '민주당'
+      const badge = isMinjoo
+        ? `<span style="font-size:10px; background:#E3F0FF; color:#004EA2; border-radius:4px; padding:1px 6px; margin-right:3px;">민주당</span>`
+        : `<span style="font-size:10px; background:#FFE8E8; color:#C9151E; border-radius:4px; padding:1px 6px; margin-right:3px;">국민의힘</span>`
       const escapedDong = row.dong.replace(/'/g, "\\'")
+      const escapedType = row.vote_type.replace(/'/g, "\\'")
       const cancelBtn = row.vote_count > 0
-        ? `<button onclick="cancelSubmission(this,'${row.party}','${escapedDong}',${row.vote_count})"
+        ? `<button onclick="cancelSubmission(this,'${escapedDong}',${row.vote_count},'${escapedType}')"
                    style="font-size:11px; padding:2px 8px; border-radius:4px; border:1px solid #dc2626;
                           background:#fff; color:#dc2626; cursor:pointer; white-space:nowrap; flex-shrink:0;">취소</button>`
         : `<span style="font-size:11px; color:#94a3b8; flex-shrink:0;">보정됨</span>`
       li.innerHTML = `
         <span class="history-time">${formatTime(row.submitted_at)}</span>
-        <span style="display:flex; align-items:center; gap:4px;">${badge} ${row.dong}</span>
+        <span style="display:flex; align-items:center;">${badge}${row.dong}</span>
         <span style="display:flex; align-items:center; gap:6px;">
           <span class="history-votes">${formatNumber(row.vote_count)}표</span>
           ${cancelBtn}
@@ -368,96 +318,71 @@
     hideMsg()
     const name        = document.getElementById('inp-name').value.trim()
     const dong        = document.getElementById('inp-dong').value
+    const votes       = parseInt(document.getElementById('inp-votes').value, 10)
     const actualPhone = selectedPhone || document.getElementById('inp-phone').value.trim()
-    const minjooVal   = parseInt(document.getElementById('inp-votes-minjoo')?.value || '', 10)
-    const peopleVal   = parseInt(document.getElementById('inp-votes-people')?.value || '', 10)
 
     if (!name || name.length < 2)   return showFormError('이름을 2자 이상 입력하세요.')
     if (!isValidPhone(actualPhone)) return showFormError('전화번호를 확인하세요. (010-XXXX-XXXX)')
     if (!dong)                       return showFormError('담당 동을 선택하세요.')
+    if (isNaN(votes) || votes === 0) return showFormError('투표자수를 입력하세요.')
+    if (votes < 0)                   return showFormError('음수는 입력할 수 없습니다.')
 
-    const hasMinjoo = camps.minjoo && !isNaN(minjooVal) && minjooVal > 0
-    const hasPeople = camps.people && !isNaN(peopleVal) && peopleVal > 0
-    if (!hasMinjoo && !hasPeople)    return showFormError('투표자수를 1 이상 입력하세요.')
+    const blocked = await checkDuplicatePhone(name, actualPhone)
+    if (blocked) return
 
+    await doInsert(name, actualPhone, dong, votes, voteType)
+  }
+
+  // ── 실제 INSERT ───────────────────────────────────
+  async function doInsert(name, phone, dong, votes, type) {
     const btn = document.getElementById('btn-submit')
     btn.disabled = true; btn.textContent = '제출 중...'
-
-    const successes = [], errors = []
     try {
-      if (hasMinjoo) {
-        const blocked = await checkDuplicatePhone(camps.minjoo, name, actualPhone)
-        if (!blocked) {
-          const err = await doInsert(camps.minjoo, name, actualPhone, dong, minjooVal)
-          if (err) errors.push(`민주당: ${err}`)
-          else     successes.push(`민주당 ${formatNumber(minjooVal)}표`)
-        }
-      }
-      if (hasPeople) {
-        const blocked = await checkDuplicatePhone(camps.people, name, actualPhone)
-        if (!blocked) {
-          const err = await doInsert(camps.people, name, actualPhone, dong, peopleVal)
-          if (err) errors.push(`국민의힘: ${err}`)
-          else     successes.push(`국민의힘 ${formatNumber(peopleVal)}표`)
-        }
-      }
+      const ip = await getClientIP()
+      const { error } = await db.from('submissions').insert({
+        camp_id: camp.id, reporter_name: name, reporter_phone: phone,
+        dong, vote_count: votes, vote_type: type, ip_address: ip
+      })
+      if (error) throw error
 
-      if (successes.length > 0) {
-        saveReporter(name, actualPhone)
-        const anyCamp = camps.minjoo || camps.people
-        localStorage.setItem(`cv_input_${anyCamp.slug.replace(/-(minjoo|people)$/, '')}`,
-          JSON.stringify({ name, phone: actualPhone, dong }))
-        showFormSuccess(successes.join(' / ') + ' 제출 완료!')
-        if (document.getElementById('inp-votes-minjoo')) document.getElementById('inp-votes-minjoo').value = ''
-        if (document.getElementById('inp-votes-people')) document.getElementById('inp-votes-people').value = ''
-        await loadMyHistory()
-      }
-      if (errors.length > 0) showFormError(errors.join('\n'))
+      saveReporter(name, phone)
+      localStorage.setItem(`cv_input_${camp.slug}`, JSON.stringify({ name, phone, dong }))
 
+      const label = votes < 0
+        ? `[${type}] ${dong} ${formatNumber(votes)}표 차감 완료!`
+        : `[${type}] ${dong} ${formatNumber(votes)}표 제출 완료!`
+      showFormSuccess(label)
+      document.getElementById('inp-votes').value = ''
+      await loadMyHistory()
+
+    } catch (e) {
+      showFormError('제출 실패: ' + (e.message || '다시 시도해주세요.'))
     } finally {
       btn.disabled = false; btn.textContent = '제 출'
     }
   }
 
-  // ── 실제 INSERT (캠프별) ──────────────────────────
-  async function doInsert(camp, name, phone, dong, votes) {
-    try {
-      const ip = await getClientIP()
-      const { error } = await db.from('submissions').insert({
-        camp_id: camp.id, reporter_name: name, reporter_phone: phone,
-        dong, vote_count: votes, vote_type: '일반', ip_address: ip
-      })
-      return error ? error.message : null
-    } catch (e) {
-      return e.message
-    }
-  }
-
   // ── 전화번호 중복 체크 ───────────────────────────
-  async function checkDuplicatePhone(camp, name, actualPhone) {
+  async function checkDuplicatePhone(name, actualPhone) {
     if (selectedPhone) return false
     const { data } = await db
       .from('submissions').select('reporter_name')
       .eq('camp_id', camp.id).eq('reporter_phone', actualPhone).limit(1)
     if (data && data.length > 0 && data[0].reporter_name !== name) {
-      showFormError(`[${camp.party_name}] 이 번호는 이미 '${data[0].reporter_name}'으로 등록되어 있습니다.`)
+      showFormError(`이 번호는 이미 '${data[0].reporter_name}'으로 등록되어 있습니다.`)
       return true
     }
     return false
   }
 
   // ── 제출 취소 ────────────────────────────────────
-  async function cancelSubmission(btn, party, dong, voteCount) {
-    if (!confirm(`[${party === 'minjoo' ? '민주당' : '국민의힘'} · ${dong}] ${formatNumber(voteCount)}표를 취소하시겠습니까?`)) return
+  async function cancelSubmission(btn, dong, voteCount, type) {
+    if (!confirm(`[${type} · ${dong}] ${formatNumber(voteCount)}표를 취소하시겠습니까?\n(-${formatNumber(voteCount)}표 보정 제출)`)) return
     const name        = document.getElementById('inp-name').value.trim()
     const actualPhone = selectedPhone || document.getElementById('inp-phone').value.trim()
     if (!name || !isValidPhone(actualPhone)) { showFormError('이름과 전화번호를 먼저 입력하세요.'); return }
     btn.disabled = true; btn.textContent = '처리중...'
-    const camp = camps[party]
-    if (!camp) return
-    const err = await doInsert(camp, name, actualPhone, dong, -voteCount)
-    if (err) showFormError('취소 실패: ' + err)
-    else { showFormSuccess('취소 처리됐습니다.'); await loadMyHistory() }
+    await doInsert(name, actualPhone, dong, -voteCount, type)
     btn.disabled = false; btn.textContent = '취소'
   }
 
@@ -468,34 +393,46 @@
       '<div style="text-align:center; padding:24px; color:#888;">불러오는 중...</div>'
     const myPhone = selectedPhone || document.getElementById('inp-phone').value.trim()
 
-    const map = {}
-    for (const [party, camp] of Object.entries(camps)) {
-      if (!camp) continue
-      const { data } = await db
-        .from('submissions')
-        .select('reporter_name, reporter_phone, dong, vote_count, submitted_at')
-        .eq('camp_id', camp.id).order('submitted_at', { ascending: false })
-      ;(data || []).forEach(row => {
-        const key = row.reporter_phone
-        if (!map[key]) map[key] = { name: row.reporter_name, id: key, votes: 0, dong: row.dong, time: row.submitted_at }
-        map[key].votes += row.vote_count
-        if (row.submitted_at > map[key].time) { map[key].time = row.submitted_at; map[key].dong = row.dong }
-      })
-    }
+    const { data } = await db
+      .from('submissions')
+      .select('reporter_name, reporter_phone, dong, vote_count, vote_type, submitted_at')
+      .eq('camp_id', camp.id)
+      .order('submitted_at', { ascending: false })
 
-    const sorted = Object.values(map).sort((a, b) => b.votes - a.votes)
-    if (sorted.length === 0) {
+    if (!data || data.length === 0) {
       document.getElementById('ranking-list').innerHTML =
         '<div style="text-align:center; padding:24px; color:#888;">아직 제출 데이터가 없습니다.</div>'
       return
     }
 
+    const map = {}
+    data.forEach(row => {
+      const key = row.reporter_phone
+      if (!map[key]) map[key] = { name: row.reporter_name, id: key, total: 0, minjoo: 0, people: 0, dong: row.dong, time: row.submitted_at }
+      map[key].total += row.vote_count
+      if (row.vote_type === '민주당')   map[key].minjoo += row.vote_count
+      else if (row.vote_type === '국민의힘') map[key].people += row.vote_count
+      if (row.submitted_at > map[key].time) { map[key].time = row.submitted_at; map[key].dong = row.dong }
+    })
+
+    const sorted = Object.values(map).sort((a, b) => b.total - a.total)
+    const limit  = camp.reporter_limit || 0
+    const shown  = limit > 0 ? sorted.slice(0, limit) : sorted
+
     const list = document.getElementById('ranking-list')
     list.innerHTML = ''
-    sorted.forEach((r, i) => {
+
+    if (limit > 0) {
+      const info = document.createElement('div')
+      info.style.cssText = 'text-align:center; padding:8px 20px 0; font-size:12px; color:#888;'
+      info.textContent = `상위 ${limit}명만 표시됩니다.`
+      list.appendChild(info)
+    }
+
+    shown.forEach((r, i) => {
       const isMe  = r.id === myPhone
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`
-      const div = document.createElement('div')
+      const div   = document.createElement('div')
       div.style.cssText = `padding:12px 20px; display:flex; align-items:center; gap:12px;
         border-bottom:1px solid #f0f0f0; background:${isMe ? '#f0f7ff' : '#fff'};`
       div.innerHTML = `
@@ -504,10 +441,13 @@
           <div style="font-weight:${isMe ? '700' : '600'}; font-size:14px;">
             ${r.name}${isMe ? ' <span style="color:#1e3a5f; font-size:11px;">(나)</span>' : ''}
           </div>
-          <div style="font-size:12px; color:#888; margin-top:2px;">${r.dong} · ${formatTime(r.time)}</div>
+          <div style="font-size:11px; color:#888; margin-top:3px; display:flex; gap:6px;">
+            <span style="background:#E3F0FF; color:#004EA2; border-radius:3px; padding:1px 5px;">민주당 ${formatNumber(r.minjoo)}</span>
+            <span style="background:#FFE8E8; color:#C9151E; border-radius:3px; padding:1px 5px;">국민의힘 ${formatNumber(r.people)}</span>
+          </div>
         </div>
         <span style="font-size:17px; font-weight:700; color:${isMe ? '#1e3a5f' : '#222'};">
-          ${formatNumber(r.votes)}표
+          ${formatNumber(r.total)}표
         </span>
       `
       list.appendChild(div)
@@ -526,17 +466,14 @@
 
     const phoneEl = document.getElementById('inp-phone')
     phoneEl.addEventListener('input', e => { if (!phoneEl.readOnly) e.target.value = formatPhone(e.target.value) })
-    phoneEl.addEventListener('blur', async () => {
-      await loadMyHistory()
-    })
+    phoneEl.addEventListener('blur', async () => { await loadMyHistory() })
 
     document.getElementById('inp-dong').addEventListener('change', async () => {
       const dong   = document.getElementById('inp-dong').value
       const unitEl = document.getElementById('unit-display')
       if (dong) {
-        const anyCamp = camps.minjoo || camps.people
-        const unit = await getUnitByDong(anyCamp.sigungu, dong)
-        if (unit) { unitEl.textContent = `→ ${anyCamp.sigungu}${unit} 선거구`; unitEl.style.display = 'block' }
+        const unit = await getUnitByDong(camp.sigungu, dong)
+        if (unit) { unitEl.textContent = `→ ${camp.sigungu}${unit} 선거구`; unitEl.style.display = 'block' }
         else       { unitEl.style.display = 'none' }
       } else { unitEl.style.display = 'none' }
     })
@@ -546,9 +483,9 @@
 
   // ── UI 헬퍼 ──────────────────────────────────────
   function showError(msg) {
-    document.getElementById('loading').style.display = 'none'
+    document.getElementById('loading').style.display     = 'none'
     document.getElementById('error-screen').style.display = 'block'
-    document.getElementById('error-msg').textContent = msg
+    document.getElementById('error-msg').textContent      = msg
   }
   function showFormError(msg)   { const e = document.getElementById('form-error');   e.textContent = msg; e.style.display = 'block' }
   function showFormSuccess(msg) { const e = document.getElementById('form-success'); e.textContent = msg; e.style.display = 'block' }
