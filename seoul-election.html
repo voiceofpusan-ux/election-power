@@ -1,141 +1,87 @@
-<!-- 2026 서울 지방선거 현황 대시보드 (6·3 지선) -->
+<!-- 2026 지방선거 기초단체장 현황 (서울·부산) -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2026 서울 지방선거 현황</title>
+  <title>2026 지방선거 기초단체장 현황</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-      background: #0f172a; color: #e2e8f0; min-height: 100vh;
-    }
-    header {
-      background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
-      padding: 18px 28px; border-bottom: 1px solid #334155;
-    }
-    .hdr-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-    .hdr-title { font-size:22px; font-weight:700; color:#fff; }
-    .hdr-sub   { font-size:12px; color:#94a3b8; margin-top:4px; }
-    .hdr-badges { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .badge {
-      padding:5px 13px; border-radius:20px;
-      font-size:12px; font-weight:700; color:#fff;
-      background:rgba(255,255,255,0.12);
-    }
-    .badge.red  { background:rgba(239,68,68,0.3);  border:1px solid #ef4444; }
-    .badge.live { display:flex; align-items:center; gap:5px; }
-    .dot { width:7px; height:7px; border-radius:50%; background:#4ade80; animation:blink 1.3s infinite; }
-    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; }
 
-    /* ── 요약 바 ── */
-    .sum-bar {
-      background:#1e293b; border-bottom:1px solid #334155;
-      padding:12px 28px; display:flex; align-items:center; flex-wrap:wrap; gap:0;
+    header { background:linear-gradient(135deg,#1e3a5f,#1e293b); padding:16px 24px; border-bottom:1px solid #334155; }
+    .hdr-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+    .hdr-title { font-size:20px; font-weight:700; color:#fff; }
+    .hdr-sub   { font-size:12px; color:#94a3b8; margin-top:3px; }
+    .hdr-r { display:flex; gap:8px; align-items:center; }
+    .badge { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; color:#fff; background:rgba(255,255,255,0.12); }
+    .badge.red { background:rgba(239,68,68,0.3); border:1px solid #ef4444; }
+    .dot { width:7px; height:7px; border-radius:50%; background:#4ade80; animation:blink 1.3s infinite; display:inline-block; margin-right:4px; }
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+    /* 도시 탭 */
+    .city-tabs { display:flex; gap:0; background:#1e293b; border-bottom:1px solid #334155; padding:0 24px; }
+    .ctab {
+      padding:12px 24px; font-size:14px; font-weight:700; cursor:pointer;
+      color:#64748b; border-bottom:2px solid transparent; transition:.15s;
     }
-    .si { padding:0 22px; text-align:center; }
+    .ctab:hover { color:#94a3b8; }
+    .ctab.on { color:#fff; border-bottom-color:#3b82f6; }
+
+    /* 요약 바 */
+    .sum-bar { background:#1e293b; border-bottom:1px solid #334155; padding:10px 24px; display:flex; flex-wrap:wrap; gap:0; align-items:center; }
+    .si { padding:0 18px; text-align:center; }
     .si:first-child { padding-left:0; }
-    .sv { font-size:22px; font-weight:700; color:#fff; }
-    .sv.b { color:#60a5fa; } .sv.r { color:#f87171; }
-    .sv.y { color:#fbbf24; } .sv.g { color:#4ade80; }
-    .sl { font-size:11px; color:#64748b; margin-top:2px; }
-    .sdiv { width:1px; background:#334155; height:34px; align-self:center; }
+    .sv { font-size:20px; font-weight:700; color:#fff; }
+    .sv.b{color:#60a5fa;} .sv.r{color:#f87171;}
+    .sl { font-size:10px; color:#64748b; margin-top:1px; }
+    .sdiv { width:1px; background:#334155; height:30px; align-self:center; }
 
-    /* ── 필터 ── */
-    .fbar { padding:12px 24px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    /* 필터 */
+    .fbar { padding:10px 24px; display:flex; align-items:center; gap:8px; }
     .flbl { font-size:12px; color:#64748b; }
-    .fbtn {
-      padding:5px 14px; border-radius:20px;
-      border:1.5px solid #334155; background:transparent;
-      color:#94a3b8; font-size:12px; font-weight:600; cursor:pointer; transition:.15s;
-    }
-    .fbtn:hover { border-color:#475569; color:#cbd5e1; }
+    .fbtn { padding:5px 14px; border-radius:20px; border:1.5px solid #334155; background:transparent; color:#94a3b8; font-size:12px; font-weight:600; cursor:pointer; }
     .fbtn.on { border-color:transparent; color:#fff; }
     .fbtn.fa.on { background:#475569; }
     .fbtn.fm.on { background:#1d4ed8; }
     .fbtn.fp.on { background:#dc2626; }
-    .fbtn.fr.on { background:#f97316; }
-    .fbtn.fe.on { background:#64748b; }
 
-    /* ── 시장 섹션 ── */
-    .sec { margin:0 24px 18px; }
-    .sec-lbl { font-size:11px; font-weight:700; color:#64748b; letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
-    .mayor-card {
-      background:#1e293b; border:1px solid #334155; border-radius:14px;
-      padding:18px 24px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;
-    }
-    .mayor-ttl { font-size:16px; font-weight:700; color:#fff; margin-right:4px; }
-    .chips { display:flex; flex-wrap:wrap; gap:8px; }
-    .chip {
-      display:flex; align-items:center; gap:7px;
-      padding:7px 14px; border-radius:9px; font-size:13px; font-weight:700;
-    }
-    .chip .age { font-size:10px; opacity:.65; font-weight:400; margin-left:2px; }
-
-    /* ── 구 그리드 ── */
-    .gu-grid {
-      display:grid; gap:10px; padding:0 24px 28px;
-      grid-template-columns: repeat(5,1fr);
-    }
-    @media(max-width:1100px){.gu-grid{grid-template-columns:repeat(4,1fr);}}
-    @media(max-width:860px) {.gu-grid{grid-template-columns:repeat(3,1fr);}}
-    @media(max-width:600px) {.gu-grid{grid-template-columns:repeat(2,1fr);}}
-
-    .gc {
-      background:#1e293b; border:1px solid #334155; border-radius:11px;
-      padding:12px 14px; transition:border-color .15s;
-    }
-    .gc:hover { border-color:#475569; }
-    .gn {
-      font-size:13px; font-weight:700; color:#fff;
-      padding-bottom:8px; margin-bottom:8px; border-bottom:1px solid #334155;
-      display:flex; justify-content:space-between; align-items:center;
-    }
-    .gcount { font-size:10px; color:#64748b; font-weight:400; }
-    .clist { display:flex; flex-direction:column; gap:5px; }
-    .crow {
-      display:flex; align-items:center; gap:7px;
-      padding:5px 8px; border-radius:6px;
-    }
-    .cgiho {
-      width:17px; height:17px; border-radius:50%;
-      font-size:9px; font-weight:700;
-      display:flex; align-items:center; justify-content:center;
-      flex-shrink:0; color:#fff;
-    }
-    .cname  { font-size:12px; font-weight:700; color:#fff; flex:1; }
-    .cparty { font-size:9px; }
-    .cage   { font-size:9px; color:#64748b; }
-
-    /* 정당 색상 */
-    .pm { background:rgba(0,78,162,.28); }
-    .pm .cgiho  { background:#1d4ed8; }
-    .pm .cparty { color:#93c5fd; }
-    .pp { background:rgba(201,21,30,.28); }
-    .pp .cgiho  { background:#dc2626; }
-    .pp .cparty { color:#fca5a5; }
-    .pr { background:rgba(249,115,22,.22); }
-    .pr .cgiho  { background:#ea580c; }
-    .pr .cparty { color:#fdba74; }
-    .pj { background:rgba(168,85,247,.2); }
-    .pj .cgiho  { background:#9333ea; }
-    .pj .cparty { color:#d8b4fe; }
-    .pl { background:rgba(34,197,94,.18); }
-    .pl .cgiho  { background:#16a34a; }
-    .pl .cparty { color:#86efac; }
-    .pi { background:rgba(100,116,139,.2); }
-    .pi .cgiho  { background:#475569; }
-    .pi .cparty { color:#94a3b8; }
-
-    /* chip 정당 색 */
+    /* 광역단체장 */
+    .sec { margin:0 24px 14px; }
+    .sec-lbl { font-size:10px; font-weight:700; color:#64748b; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+    .mayor-card { background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px 20px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .mayor-ttl { font-size:15px; font-weight:700; color:#fff; margin-right:4px; }
+    .chips { display:flex; flex-wrap:wrap; gap:7px; }
+    .chip { display:flex; align-items:center; gap:6px; padding:6px 12px; border-radius:8px; font-size:13px; font-weight:700; }
     .chip-m { background:rgba(0,78,162,.35); border:1px solid #1d4ed8; color:#93c5fd; }
     .chip-p { background:rgba(201,21,30,.35); border:1px solid #dc2626; color:#fca5a5; }
-    .chip-r { background:rgba(249,115,22,.3); border:1px solid #ea580c; color:#fdba74; }
-    .chip-e { background:rgba(100,116,139,.3); border:1px solid #475569; color:#cbd5e1; }
 
-    .source { font-size:11px; color:#334155; text-align:right; padding:0 28px 20px; }
-    .hidden { display:none !important; }
+    /* 그리드 */
+    .gu-grid { display:grid; gap:9px; padding:0 24px 24px; grid-template-columns:repeat(5,1fr); }
+    @media(max-width:1100px){.gu-grid{grid-template-columns:repeat(4,1fr);}}
+    @media(max-width:860px) {.gu-grid{grid-template-columns:repeat(3,1fr);}}
+    @media(max-width:580px) {.gu-grid{grid-template-columns:repeat(2,1fr);}}
+
+    .gc { background:#1e293b; border:1px solid #334155; border-radius:10px; padding:11px 13px; }
+    .gc.hidden { display:none; }
+    .gn { font-size:12px; font-weight:700; color:#fff; padding-bottom:7px; margin-bottom:7px; border-bottom:1px solid #334155; }
+    .clist { display:flex; flex-direction:column; gap:5px; }
+    .crow { display:flex; align-items:center; gap:6px; padding:5px 7px; border-radius:6px; }
+    .crow.hidden { display:none; }
+    .cg { width:16px; height:16px; border-radius:50%; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fff; }
+    .cn { font-size:12px; font-weight:700; color:#fff; flex:1; }
+    .cp { font-size:9px; }
+
+    .pm { background:rgba(0,78,162,.28); }
+    .pm .cg { background:#1d4ed8; }
+    .pm .cp { color:#93c5fd; }
+    .pp { background:rgba(201,21,30,.28); }
+    .pp .cg { background:#dc2626; }
+    .pp .cp { color:#fca5a5; }
+
+    .pane { display:none; }
+    .pane.on { display:block; }
+    .source { font-size:10px; color:#334155; text-align:right; padding:0 24px 16px; }
   </style>
 </head>
 <body>
@@ -143,232 +89,179 @@
 <header>
   <div class="hdr-row">
     <div>
-      <div class="hdr-title">🗳️ 2026 서울 지방선거 현황</div>
-      <div class="hdr-sub">서울시장 · 25개 자치구청장 후보자 (제9회 전국동시지방선거 · 6월 3일)</div>
+      <div class="hdr-title">🗳️ 2026 지방선거 기초단체장 현황</div>
+      <div class="hdr-sub">더불어민주당 · 국민의힘 후보 (제9회 전국동시지방선거 · 6월 3일)</div>
     </div>
-    <div class="hdr-badges">
+    <div class="hdr-r">
       <div class="badge red">D-<span id="dday">-</span></div>
-      <div class="badge live"><div class="dot"></div>뉴시스 후보 등록 현황</div>
+      <div class="badge"><span class="dot"></span>후보 등록 기준</div>
     </div>
   </div>
 </header>
 
-<!-- 요약 바 -->
-<div class="sum-bar">
-  <div class="si"><div class="sv">69</div><div class="sl">총 후보자</div></div>
-  <div class="sdiv"></div>
-  <div class="si"><div class="sv b">33</div><div class="sl">더불어민주당</div></div>
-  <div class="sdiv"></div>
-  <div class="si"><div class="sv r">28</div><div class="sl">국민의힘</div></div>
-  <div class="sdiv"></div>
-  <div class="si"><div class="sv y">8</div><div class="sl">기타정당·무소속</div></div>
-  <div class="sdiv"></div>
-  <div class="si"><div class="sv g">26</div><div class="sl">선거구</div></div>
+<!-- 도시 탭 -->
+<div class="city-tabs">
+  <div class="ctab on" onclick="setCity('seoul')">🏙️ 서울특별시</div>
+  <div class="ctab"    onclick="setCity('busan')">🌊 부산광역시</div>
 </div>
 
-<!-- 필터 -->
-<div class="fbar">
-  <span class="flbl">정당 필터</span>
-  <button class="fbtn fa on" onclick="setFilter('all')">전체</button>
-  <button class="fbtn fm"    onclick="setFilter('m')">🔵 민주당</button>
-  <button class="fbtn fp"    onclick="setFilter('p')">🔴 국민의힘</button>
-  <button class="fbtn fr"    onclick="setFilter('r')">🟠 개혁신당</button>
-  <button class="fbtn fe"    onclick="setFilter('e')">⚫ 기타·무소속</button>
-</div>
-
-<!-- 서울시장 -->
-<div class="sec" id="mayor-sec">
-  <div class="sec-lbl">서울특별시장</div>
-  <div class="mayor-card">
-    <div class="mayor-ttl">서울시장</div>
-    <div class="chips">
-      <div class="chip chip-m" data-party="m">기호 1  정원오<span class="age">67세·남</span></div>
-      <div class="chip chip-p" data-party="p">기호 2  오세훈<span class="age">64세·남</span></div>
-      <div class="chip chip-r" data-party="r">기호 3  김정철<span class="age">개혁신당</span></div>
+<!-- ═══════════════ 서울 ═══════════════ -->
+<div class="pane on" id="pane-seoul">
+  <div class="sum-bar">
+    <div class="si"><div class="sv">52</div><div class="sl">총 후보자</div></div>
+    <div class="sdiv"></div>
+    <div class="si"><div class="sv b">26</div><div class="sl">더불어민주당</div></div>
+    <div class="sdiv"></div>
+    <div class="si"><div class="sv r">26</div><div class="sl">국민의힘</div></div>
+    <div class="sdiv"></div>
+    <div class="si"><div class="sv">26</div><div class="sl">선거구</div></div>
+  </div>
+  <div class="fbar">
+    <span class="flbl">필터</span>
+    <button class="fbtn fa on" onclick="setFilter('seoul','all')">전체</button>
+    <button class="fbtn fm"    onclick="setFilter('seoul','m')">🔵 민주당</button>
+    <button class="fbtn fp"    onclick="setFilter('seoul','p')">🔴 국민의힘</button>
+  </div>
+  <div class="sec">
+    <div class="sec-lbl">서울특별시장</div>
+    <div class="mayor-card">
+      <div class="mayor-ttl">서울시장</div>
+      <div class="chips">
+        <div class="chip chip-m" data-pc="m">기호 1 &nbsp;정원오</div>
+        <div class="chip chip-p" data-pc="p">기호 2 &nbsp;오세훈</div>
+      </div>
     </div>
   </div>
+  <div class="sec" style="margin-bottom:6px;"><div class="sec-lbl">자치구청장 (25개 구)</div></div>
+  <div class="gu-grid" id="grid-seoul"></div>
+  <div class="source">출처: 뉴시스 2026.05.16 · 민주당·국민의힘 후보만 표시</div>
 </div>
 
-<!-- 구청장 그리드 -->
-<div class="sec" style="margin-bottom:8px;">
-  <div class="sec-lbl">자치구청장 (25개 구)</div>
+<!-- ═══════════════ 부산 ═══════════════ -->
+<div class="pane" id="pane-busan">
+  <div class="sum-bar">
+    <div class="si"><div class="sv">32</div><div class="sl">총 후보자</div></div>
+    <div class="sdiv"></div>
+    <div class="si"><div class="sv b">16</div><div class="sl">더불어민주당</div></div>
+    <div class="sdiv"></div>
+    <div class="si"><div class="sv r">16</div><div class="sl">국민의힘</div></div>
+    <div class="sdiv"></div>
+    <div class="si"><div class="sv">16</div><div class="sl">선거구</div></div>
+  </div>
+  <div class="fbar">
+    <span class="flbl">필터</span>
+    <button class="fbtn fa on" onclick="setFilter('busan','all')">전체</button>
+    <button class="fbtn fm"    onclick="setFilter('busan','m')">🔵 민주당</button>
+    <button class="fbtn fp"    onclick="setFilter('busan','p')">🔴 국민의힘</button>
+  </div>
+  <div class="sec">
+    <div class="sec-lbl">부산광역시장</div>
+    <div class="mayor-card">
+      <div class="mayor-ttl">부산시장</div>
+      <div class="chips" style="color:#64748b; font-size:13px;">데이터 준비 중</div>
+    </div>
+  </div>
+  <div class="sec" style="margin-bottom:6px;"><div class="sec-lbl">기초단체장 (15구 1군)</div></div>
+  <div class="gu-grid" id="grid-busan"></div>
+  <div class="source">출처: 민주당·국민의힘 후보만 표시</div>
 </div>
-<div class="gu-grid" id="gu-grid"></div>
-
-<div class="source">출처: 뉴시스 (2026.05.16) · 선관위 후보자 등록 현황 기준</div>
 
 <script>
-const GU_DATA = [
-  { gu:'종로구', cands:[
-    {n:'유찬종', p:'더불어민주당', pc:'m', age:66, g:'남'},
-    {n:'정문헌', p:'국민의힘',     pc:'p', age:60, g:'남'},
-  ]},
-  { gu:'중구', cands:[
-    {n:'이동현', p:'더불어민주당', pc:'m', age:34, g:'남'},
-    {n:'김길성', p:'국민의힘',     pc:'p', age:60, g:'남'},
-    {n:'길기영', p:'개혁신당',     pc:'r', age:65, g:'남'},
-  ]},
-  { gu:'용산구', cands:[
-    {n:'강태웅', p:'더불어민주당', pc:'m', age:62, g:'남'},
-    {n:'김경대', p:'국민의힘',     pc:'p', age:54, g:'남'},
-    {n:'김윤재', p:'개혁신당',     pc:'r', age:57, g:'남'},
-  ]},
-  { gu:'성동구', cands:[
-    {n:'유보화', p:'더불어민주당', pc:'m', age:60, g:'남'},
-    {n:'고재현', p:'국민의힘',     pc:'p', age:45, g:'남'},
-    {n:'정찬옥', p:'개혁신당',     pc:'r', age:71, g:'남'},
-  ]},
-  { gu:'광진구', cands:[
-    {n:'문종철', p:'더불어민주당', pc:'m', age:58, g:'남'},
-    {n:'김경호', p:'국민의힘',     pc:'p', age:66, g:'남'},
-  ]},
-  { gu:'동대문구', cands:[
-    {n:'최동민', p:'더불어민주당', pc:'m', age:56, g:'남'},
-    {n:'이필형', p:'국민의힘',     pc:'p', age:66, g:'남'},
-  ]},
-  { gu:'중랑구', cands:[
-    {n:'류경기', p:'더불어민주당', pc:'m', age:64, g:'남'},
-    {n:'황종석', p:'국민의힘',     pc:'p', age:66, g:'남'},
-  ]},
-  { gu:'성북구', cands:[
-    {n:'이승로', p:'더불어민주당', pc:'m', age:66, g:'남'},
-    {n:'민병웅', p:'국민의힘',     pc:'p', age:59, g:'남'},
-    {n:'홍희진', p:'진보당',       pc:'j', age:31, g:'여'},
-  ]},
-  { gu:'강북구', cands:[
-    {n:'정창수', p:'더불어민주당', pc:'m', age:56, g:'남'},
-    {n:'장지호', p:'국민의힘',     pc:'p', age:39, g:'남'},
-    {n:'윤정현', p:'노동당',       pc:'l', age:52, g:'여'},
-    {n:'한덕희', p:'무소속',       pc:'i', age:63, g:'남'},
-  ]},
-  { gu:'도봉구', cands:[
-    {n:'김동욱', p:'더불어민주당', pc:'m', age:59, g:'남'},
-    {n:'오언석', p:'국민의힘',     pc:'p', age:54, g:'남'},
-  ]},
-  { gu:'노원구', cands:[
-    {n:'서준오', p:'더불어민주당', pc:'m', age:51, g:'남'},
-    {n:'김광수', p:'국민의힘',     pc:'p', age:66, g:'남'},
-  ]},
-  { gu:'은평구', cands:[
-    {n:'김미경', p:'더불어민주당', pc:'m', age:60, g:'여'},
-    {n:'남기정', p:'국민의힘',     pc:'p', age:60, g:'남'},
-  ]},
-  { gu:'서대문구', cands:[
-    {n:'박운기', p:'더불어민주당', pc:'m', age:59, g:'남'},
-    {n:'이성헌', p:'국민의힘',     pc:'p', age:68, g:'남'},
-  ]},
-  { gu:'마포구', cands:[
-    {n:'유동균', p:'더불어민주당', pc:'m', age:63, g:'남'},
-    {n:'박강수', p:'국민의힘',     pc:'p', age:67, g:'남'},
-  ]},
-  { gu:'양천구', cands:[
-    {n:'우형찬', p:'더불어민주당', pc:'m', age:58, g:'남'},
-    {n:'이기재', p:'국민의힘',     pc:'p', age:58, g:'남'},
-  ]},
-  { gu:'강서구', cands:[
-    {n:'진교훈', p:'더불어민주당', pc:'m', age:58, g:'남'},
-    {n:'김진선', p:'국민의힘',     pc:'p', age:64, g:'남'},
-    {n:'이미선', p:'진보당',       pc:'j', age:42, g:'여'},
-    {n:'백철',   p:'무소속',       pc:'i', age:69, g:'남'},
-  ]},
-  { gu:'구로구', cands:[
-    {n:'장인홍', p:'더불어민주당', pc:'m', age:59, g:'남'},
-    {n:'홍덕희', p:'국민의힘',     pc:'p', age:49, g:'남'},
-  ]},
-  { gu:'금천구', cands:[
-    {n:'최기찬', p:'더불어민주당', pc:'m', age:68, g:'남'},
-    {n:'이희권', p:'국민의힘',     pc:'p', age:69, g:'남'},
-  ]},
-  { gu:'영등포구', cands:[
-    {n:'조유진', p:'더불어민주당', pc:'m', age:59, g:'남'},
-    {n:'최웅식', p:'국민의힘',     pc:'p', age:63, g:'남'},
-  ]},
-  { gu:'동작구', cands:[
-    {n:'류삼영', p:'더불어민주당', pc:'m', age:61, g:'남'},
-    {n:'김정태', p:'국민의힘',     pc:'p', age:50, g:'남'},
-    {n:'박일하', p:'개혁신당',     pc:'r', age:62, g:'남'},
-    {n:'조성범', p:'무소속',       pc:'i', age:58, g:'남'},
-  ]},
-  { gu:'관악구', cands:[
-    {n:'박준희', p:'더불어민주당', pc:'m', age:62, g:'남'},
-    {n:'이남형', p:'국민의힘',     pc:'p', age:74, g:'남'},
-    {n:'이혜숙', p:'개혁신당',     pc:'r', age:62, g:'여'},
-  ]},
-  { gu:'서초구', cands:[
-    {n:'황인식', p:'더불어민주당', pc:'m', age:61, g:'남'},
-    {n:'전성수', p:'국민의힘',     pc:'p', age:64, g:'남'},
-  ]},
-  { gu:'강남구', cands:[
-    {n:'김형곤', p:'더불어민주당', pc:'m', age:55, g:'남'},
-    {n:'김현기', p:'국민의힘',     pc:'p', age:70, g:'남'},
-  ]},
-  { gu:'송파구', cands:[
-    {n:'조재희', p:'더불어민주당', pc:'m', age:67, g:'남'},
-    {n:'서강석', p:'국민의힘',     pc:'p', age:68, g:'남'},
-  ]},
-  { gu:'강동구', cands:[
-    {n:'김종무', p:'더불어민주당', pc:'m', age:56, g:'남'},
-    {n:'이수희', p:'국민의힘',     pc:'p', age:55, g:'여'},
-    {n:'이용우', p:'개혁신당',     pc:'r', age:39, g:'남'},
-  ]},
+const SEOUL = [
+  {gu:'종로구',   cands:[{n:'유찬종',pc:'m'},{n:'정문헌',pc:'p'}]},
+  {gu:'중구',     cands:[{n:'이동현',pc:'m'},{n:'김길성',pc:'p'}]},
+  {gu:'용산구',   cands:[{n:'강태웅',pc:'m'},{n:'김경대',pc:'p'}]},
+  {gu:'성동구',   cands:[{n:'유보화',pc:'m'},{n:'고재현',pc:'p'}]},
+  {gu:'광진구',   cands:[{n:'문종철',pc:'m'},{n:'김경호',pc:'p'}]},
+  {gu:'동대문구', cands:[{n:'최동민',pc:'m'},{n:'이필형',pc:'p'}]},
+  {gu:'중랑구',   cands:[{n:'류경기',pc:'m'},{n:'황종석',pc:'p'}]},
+  {gu:'성북구',   cands:[{n:'이승로',pc:'m'},{n:'민병웅',pc:'p'}]},
+  {gu:'강북구',   cands:[{n:'정창수',pc:'m'},{n:'장지호',pc:'p'}]},
+  {gu:'도봉구',   cands:[{n:'김동욱',pc:'m'},{n:'오언석',pc:'p'}]},
+  {gu:'노원구',   cands:[{n:'서준오',pc:'m'},{n:'김광수',pc:'p'}]},
+  {gu:'은평구',   cands:[{n:'김미경',pc:'m'},{n:'남기정',pc:'p'}]},
+  {gu:'서대문구', cands:[{n:'박운기',pc:'m'},{n:'이성헌',pc:'p'}]},
+  {gu:'마포구',   cands:[{n:'유동균',pc:'m'},{n:'박강수',pc:'p'}]},
+  {gu:'양천구',   cands:[{n:'우형찬',pc:'m'},{n:'이기재',pc:'p'}]},
+  {gu:'강서구',   cands:[{n:'진교훈',pc:'m'},{n:'김진선',pc:'p'}]},
+  {gu:'구로구',   cands:[{n:'장인홍',pc:'m'},{n:'홍덕희',pc:'p'}]},
+  {gu:'금천구',   cands:[{n:'최기찬',pc:'m'},{n:'이희권',pc:'p'}]},
+  {gu:'영등포구', cands:[{n:'조유진',pc:'m'},{n:'최웅식',pc:'p'}]},
+  {gu:'동작구',   cands:[{n:'류삼영',pc:'m'},{n:'김정태',pc:'p'}]},
+  {gu:'관악구',   cands:[{n:'박준희',pc:'m'},{n:'이남형',pc:'p'}]},
+  {gu:'서초구',   cands:[{n:'황인식',pc:'m'},{n:'전성수',pc:'p'}]},
+  {gu:'강남구',   cands:[{n:'김형곤',pc:'m'},{n:'김현기',pc:'p'}]},
+  {gu:'송파구',   cands:[{n:'조재희',pc:'m'},{n:'서강석',pc:'p'}]},
+  {gu:'강동구',   cands:[{n:'김종무',pc:'m'},{n:'이수희',pc:'p'}]},
 ]
 
-const PC_CLASS = { m:'pm', p:'pp', r:'pr', j:'pj', l:'pl', i:'pi' }
-const GIHO_ORDER = { m:1, p:2, r:3, j:4, l:5, i:'무' }
-const PARTY_SHORT = {
-  '더불어민주당':'민주당', '국민의힘':'국민의힘', '개혁신당':'개혁신당',
-  '진보당':'진보당', '노동당':'노동당', '무소속':'무소속'
+const BUSAN = [
+  {gu:'중구',     cands:[{n:'강희은',pc:'m'},{n:'최진봉',pc:'p'}]},
+  {gu:'서구',     cands:[{n:'황정재',pc:'m'},{n:'공한수',pc:'p'}]},
+  {gu:'동구',     cands:[{n:'김종우',pc:'m'},{n:'강철호',pc:'p'}]},
+  {gu:'영도구',   cands:[{n:'김철훈',pc:'m'},{n:'안성민',pc:'p'}]},
+  {gu:'부산진구', cands:[{n:'서은숙',pc:'m'},{n:'김영욱',pc:'p'}]},
+  {gu:'동래구',   cands:[{n:'탁영일',pc:'m'},{n:'장준용',pc:'p'}]},
+  {gu:'남구',     cands:[{n:'박재범',pc:'m'},{n:'김광명',pc:'p'}]},
+  {gu:'북구',     cands:[{n:'정명희',pc:'m'},{n:'오태원',pc:'p'}]},
+  {gu:'해운대구', cands:[{n:'홍순헌',pc:'m'},{n:'김성수',pc:'p'}]},
+  {gu:'사하구',   cands:[{n:'김태석',pc:'m'},{n:'김척수',pc:'p'}]},
+  {gu:'금정구',   cands:[{n:'김경지',pc:'m'},{n:'윤일현',pc:'p'}]},
+  {gu:'강서구',   cands:[{n:'박상준',pc:'m'},{n:'김형찬',pc:'p'}]},
+  {gu:'연제구',   cands:[{n:'이정식',pc:'m'},{n:'주석수',pc:'p'}]},
+  {gu:'수영구',   cands:[{n:'김진',  pc:'m'},{n:'강성태',pc:'p'}]},
+  {gu:'사상구',   cands:[{n:'서태경',pc:'m'},{n:'이대훈',pc:'p'}]},
+  {gu:'기장군',   cands:[{n:'우성빈',pc:'m'},{n:'정명시',pc:'p'}]},
+]
+
+const GIHO = {m:'1', p:'2'}
+const PNAME = {m:'민주당', p:'국민의힘'}
+
+function buildGrid(data, gridId) {
+  const grid = document.getElementById(gridId)
+  grid.innerHTML = data.map(({gu, cands}) => `
+    <div class="gc">
+      <div class="gn">${gu}</div>
+      <div class="clist">
+        ${cands.map(c => `
+          <div class="crow p${c.pc}" data-pc="${c.pc}">
+            <span class="cg">${GIHO[c.pc]}</span>
+            <span class="cn">${c.n}</span>
+            <span class="cp">${PNAME[c.pc]}</span>
+          </div>`).join('')}
+      </div>
+    </div>`).join('')
 }
 
-let curFilter = 'all'
+let cityFilter = {seoul:'all', busan:'all'}
 
-function buildGrid() {
-  const grid = document.getElementById('gu-grid')
-  grid.innerHTML = GU_DATA.map(({ gu, cands }) => {
-    const rows = cands.map((c, i) => `
-      <div class="crow ${PC_CLASS[c.pc]}" data-pc="${c.pc}">
-        <span class="cgiho">${GIHO_ORDER[c.pc] || '무'}</span>
-        <span class="cname">${c.n}</span>
-        <span class="cparty">${PARTY_SHORT[c.p] || c.p}</span>
-        <span class="cage">${c.age}·${c.g}</span>
-      </div>`).join('')
-    return `
-      <div class="gc">
-        <div class="gn">${gu}<span class="gcount">${cands.length}명</span></div>
-        <div class="clist">${rows}</div>
-      </div>`
-  }).join('')
+function setFilter(city, f) {
+  cityFilter[city] = f
+  const pane = document.getElementById(`pane-${city}`)
+  pane.querySelectorAll('.fbtn').forEach(b => b.classList.remove('on'))
+  pane.querySelector(`.f${f==='all'?'a':f}`).classList.add('on')
+
+  pane.querySelectorAll('.crow').forEach(r => {
+    r.classList.toggle('hidden', f !== 'all' && r.dataset.pc !== f)
+  })
+  // 시장 칩
+  pane.querySelectorAll('.chip[data-pc]').forEach(c => {
+    c.style.opacity = (f === 'all' || c.dataset.pc === f) ? '1' : '0.2'
+  })
 }
 
-function setFilter(f) {
-  curFilter = f
-  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('on'))
-  document.querySelector(`.f${f === 'all' ? 'a' : f}`).classList.add('on')
-
-  // 구청장 필터
-  document.querySelectorAll('.gc').forEach(card => {
-    if (f === 'all') { card.classList.remove('hidden'); return }
-    const hasMatch = [...card.querySelectorAll('.crow')].some(r => r.dataset.pc === f)
-    card.classList.toggle('hidden', !hasMatch)
-  })
-  document.querySelectorAll('.crow').forEach(r => {
-    r.style.opacity = (f === 'all' || r.dataset.pc === f) ? '1' : '0.2'
-  })
-
-  // 시장 칩 필터
-  document.querySelectorAll('.chip').forEach(c => {
-    c.style.opacity = (f === 'all' || c.dataset.party === f) ? '1' : '0.2'
-  })
+function setCity(city) {
+  document.querySelectorAll('.ctab').forEach((t,i) => t.classList.toggle('on', ['seoul','busan'][i] === city))
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === `pane-${city}`))
 }
 
 function updateDday() {
-  const election = new Date('2026-06-03T06:00:00+09:00')
-  const now      = new Date()
-  const diff     = Math.ceil((election - now) / 86400000)
-  document.getElementById('dday').textContent = diff > 0 ? diff : (diff === 0 ? 'Day' : '종료')
+  const diff = Math.ceil((new Date('2026-06-03T06:00:00+09:00') - new Date()) / 86400000)
+  document.getElementById('dday').textContent = diff > 0 ? diff : (diff === 0 ? 'Day' : '완료')
 }
 
-buildGrid()
+buildGrid(SEOUL, 'grid-seoul')
+buildGrid(BUSAN, 'grid-busan')
 updateDday()
 setInterval(updateDday, 60000)
 </script>
