@@ -41,6 +41,10 @@
       animation: blink 1.3s infinite;
     }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    @keyframes devBlink {
+      0%,100% { opacity:1; text-shadow:0 2px 16px rgba(255,255,255,0.35), 0 0 40px rgba(147,197,253,0.3); }
+      50%      { opacity:0.15; text-shadow:none; }
+    }
     .refresh-btn {
       padding: 7px 16px; border-radius: 8px;
       background: rgba(255,255,255,0.15); color: #fff;
@@ -277,7 +281,8 @@
                 font-family:'Noto Serif KR','Playfair Display',Georgia,serif;
                 font-size:22px; font-weight:700; color:#fff; letter-spacing:4px;
                 text-shadow:0 2px 16px rgba(255,255,255,0.35), 0 0 40px rgba(147,197,253,0.3);
-                pointer-events:none; white-space:nowrap;">
+                pointer-events:none; white-space:nowrap;
+                animation:devBlink 2.8s ease-in-out infinite;">
       개발자 &nbsp;서정우
     </div>
     <div class="header-left">
