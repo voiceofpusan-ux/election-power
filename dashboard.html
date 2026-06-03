@@ -300,6 +300,7 @@
         <option value="60">60초</option>
       </select>
       <button class="refresh-btn" id="btn-export" onclick="exportExcel()">📥 엑셀</button>
+      <button class="refresh-btn" id="btn-export-log" onclick="exportInputLog()">📋 투표수 입력기록</button>
       <button class="refresh-btn" onclick="refreshDashboard()">🔄 새로고침</button>
     </div>
   </header>
@@ -1391,14 +1392,72 @@
     }
   }
 
+  // ── 투표수 입력기록(원시 로그) 엑셀 내보내기 ──────────
+  async function exportInputLog() {
+    const btn = document.getElementById('btn-export-log')
+    btn.disabled = true
+    btn.textContent = '준비 중...'
+
+    try {
+      const { data } = await db
+        .from('submissions')
+        .select('reporter_name, reporter_phone, dong, vote_count, vote_type, field_worker_name, submitted_at')
+        .eq('camp_id', camp.id)
+        .order('submitted_at', { ascending: false })
+
+      const rows = [['입력시각', '단위', '동명', '구분', '투표수', '입력담당자', '전화번호', '현황보고자']]
+      ;(data || []).forEach(row => {
+        rows.push([
+          formatTime(row.submitted_at),
+          getUnitForDong(row.dong) || '',
+          row.dong,
+          row.vote_type,
+          row.vote_count,
+          row.reporter_name,
+          row.reporter_phone,
+          row.field_worker_name || ''
+        ])
+      })
+
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      ws['!cols']       = [18, 6, 14, 10, 8, 12, 16, 12].map(wch => ({ wch }))
+      ws['!freeze']     = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' }
+      ws['!autofilter'] = { ref: ws['!ref'] }
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, '입력기록')
+
+      const now     = new Date()
+      const dateStr = now.getFullYear().toString()
+        + String(now.getMonth() + 1).padStart(2, '0')
+        + String(now.getDate()).padStart(2, '0') + '_'
+        + String(now.getHours()).padStart(2, '0')
+        + String(now.getMinutes()).padStart(2, '0')
+      XLSX.writeFile(wb, `${camp.district}_${camp.party_name}_입력기록_${dateStr}.xlsx`)
+      showToast('입력기록 엑셀이 다운로드됐습니다.')
+
+    } catch (e) {
+      showToast('내보내기 실패: ' + e.message, 'error')
+    } finally {
+      btn.disabled = false
+      btn.textContent = '📋 투표수 입력기록'
+    }
+  }
+
   function buildDongSheet(data) {
     // 동별 누적합
+    const isBonson = camp.election_type === '본선'
     const latest = {}
     data.forEach(row => {
       if (!latest[row.dong]) latest[row.dong] = { ...row, vote_count: 0, dang_count: 0, anshim_count: 0 }
       latest[row.dong].vote_count += row.vote_count
-      if (row.vote_type === '안심번호') latest[row.dong].anshim_count += row.vote_count
-      else                              latest[row.dong].dang_count   += row.vote_count
+      if (isBonson) {
+        if      (row.vote_type === '국민의힘') latest[row.dong].anshim_count += row.vote_count
+        else if (row.vote_type === '민주당')   latest[row.dong].dang_count   += row.vote_count
+      } else {
+        if (row.vote_type === '안심번호') latest[row.dong].anshim_count += row.vote_count
+        else                              latest[row.dong].dang_count   += row.vote_count
+      }
       if (row.submitted_at > (latest[row.dong]._t || '')) {
         latest[row.dong].submitted_at  = row.submitted_at
         latest[row.dong].reporter_name = row.reporter_name
@@ -1406,7 +1465,9 @@
       }
     })
 
-    const rows = [['단위', '동명', '당원투표', '일반(안심번호)', '합계', '보고자', '보고시각']]
+    const dangLabel   = isBonson ? '민주당'  : '당원투표'
+    const anshimLabel = isBonson ? '국민의힘' : '일반(안심번호)'
+    const rows = [['단위', '동명', dangLabel, anshimLabel, '합계', '보고자', '보고시각']]
     const units = dongsByUnit ? Object.entries(dongsByUnit) : [[null, allDongs]]
     units.forEach(([unit, dongs]) => {
       dongs.forEach(dong => {
@@ -1425,6 +1486,7 @@
   }
 
   async function buildReporterSheet(data) {
+    const isBonson = camp.election_type === '본선'
     const reporters = {}
     data.forEach(row => {
       if (!reporters[row.reporter_phone]) {
@@ -1438,8 +1500,13 @@
       r.allDongs.add(row.dong)
       r.count++
       r.totalVotes += row.vote_count
-      if (row.vote_type === '안심번호') r.anshimVotes += row.vote_count
-      else                              r.dangVotes   += row.vote_count
+      if (isBonson) {
+        if      (row.vote_type === '국민의힘') r.anshimVotes += row.vote_count
+        else if (row.vote_type === '민주당')   r.dangVotes   += row.vote_count
+      } else {
+        if (row.vote_type === '안심번호') r.anshimVotes += row.vote_count
+        else                              r.dangVotes   += row.vote_count
+      }
       if (row.submitted_at > r.lastTime) r.lastTime = row.submitted_at
     })
 
@@ -1452,7 +1519,9 @@
       }
     }
 
-    const rows = [['이름', '전화번호', '단위', '담당 동', '당원투표', '일반(안심번호)', '합계', '제출 횟수', '마지막 보고']]
+    const dangLabel   = isBonson ? '민주당'  : '당원투표'
+    const anshimLabel = isBonson ? '국민의힘' : '일반(안심번호)'
+    const rows = [['이름', '전화번호', '단위', '담당 동', dangLabel, anshimLabel, '합계', '제출 횟수', '마지막 보고']]
     Object.values(reporters)
       .sort((a, b) => b.totalVotes - a.totalVotes)
       .forEach(r => rows.push([
@@ -1468,6 +1537,7 @@
   }
 
   async function buildFieldWorkerSheet(data) {
+    const isBonson = camp.election_type === '본선'
     const workers = {}
     data.forEach(row => {
       const key = row.field_worker_name || '(미입력)'
@@ -1481,8 +1551,13 @@
       const w = workers[key]
       w.count++
       w.totalVotes += row.vote_count
-      if (row.vote_type === '안심번호') w.anshimVotes += row.vote_count
-      else                              w.dangVotes   += row.vote_count
+      if (isBonson) {
+        if      (row.vote_type === '국민의힘') w.anshimVotes += row.vote_count
+        else if (row.vote_type === '민주당')   w.dangVotes   += row.vote_count
+      } else {
+        if (row.vote_type === '안심번호') w.anshimVotes += row.vote_count
+        else                              w.dangVotes   += row.vote_count
+      }
       if (row.dong) w.allDongs.add(row.dong)
       if (row.submitted_at > w.lastTime) w.lastTime = row.submitted_at
     })
@@ -1496,7 +1571,9 @@
       }
     }
 
-    const rows = [['보고자', '단위', '담당 동', '당원투표', '일반(안심번호)', '합계', '보고 횟수', '마지막 보고']]
+    const dangLabel   = isBonson ? '민주당'  : '당원투표'
+    const anshimLabel = isBonson ? '국민의힘' : '일반(안심번호)'
+    const rows = [['보고자', '단위', '담당 동', dangLabel, anshimLabel, '합계', '보고 횟수', '마지막 보고']]
     Object.values(workers)
       .sort((a, b) => b.totalVotes - a.totalVotes)
       .forEach(w => rows.push([
