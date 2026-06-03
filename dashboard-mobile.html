@@ -1,0 +1,353 @@
+<!-- 모바일 전용 실시간 개표 대시보드 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>개표 현황</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+    body { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; }
+
+    /* ── 헤더 ── */
+    header {
+      background:#6d28d9; padding:14px 16px 12px;
+      position:sticky; top:0; z-index:100;
+    }
+    .hdr-title { font-size:16px; font-weight:700; color:#fff; text-align:center; }
+    .hdr-sub   { font-size:11px; color:rgba(255,255,255,0.65); text-align:center; margin-top:2px; }
+    .hdr-dev   {
+      font-family:'Noto Serif KR',Georgia,serif;
+      font-size:11px; font-weight:700; color:rgba(255,255,255,0.5);
+      text-align:center; margin-top:4px; letter-spacing:2px;
+      animation:devBlink 2.8s ease-in-out infinite;
+    }
+    @keyframes devBlink{0%,100%{opacity:1}50%{opacity:.15}}
+
+    .refresh-row {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-top:8px;
+    }
+    .live-badge {
+      display:flex; align-items:center; gap:5px;
+      font-size:11px; color:rgba(255,255,255,.7);
+    }
+    .dot { width:6px; height:6px; border-radius:50%; background:#4ade80; animation:blink 1.3s infinite; }
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .refresh-btn {
+      background:rgba(255,255,255,.15); border:none; color:#fff;
+      padding:5px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;
+    }
+    .last-upd { font-size:10px; color:rgba(255,255,255,.4); }
+
+    /* ── 득표율 바 ── */
+    .ratio-section {
+      background:#1a1f35; padding:16px;
+      border-bottom:1px solid #334155;
+    }
+    .ratio-nums {
+      display:grid; grid-template-columns:1fr auto 1fr;
+      align-items:center; gap:8px; margin-bottom:12px;
+    }
+    .ratio-party { text-align:center; }
+    .party-label { font-size:13px; font-weight:700; margin-bottom:4px; }
+    .party-votes { font-size:36px; font-weight:800; line-height:1; }
+    .party-pct   { font-size:22px; font-weight:800; margin-top:4px; }
+    .ratio-mid   { text-align:center; font-size:11px; color:#64748b; font-weight:600; }
+    .vs-text     { font-size:18px; color:#475569; font-weight:700; }
+    .diff-text   { font-size:14px; font-weight:700; margin-top:4px; }
+
+    .ratio-bar-wrap {
+      background:#334155; border-radius:8px; height:16px;
+      overflow:hidden; display:flex; margin-bottom:8px;
+    }
+    .bar-m { background:#3b82f6; height:100%; transition:width .6s ease; }
+    .bar-p { background:#ef4444; height:100%; transition:width .6s ease; }
+
+    .rate-row {
+      display:flex; justify-content:center; align-items:center; gap:6px;
+    }
+    .rate-lbl { font-size:12px; color:#64748b; }
+    .rate-val  { font-size:22px; font-weight:800; color:#4ade80; }
+    .rate-cnt  { font-size:11px; color:#475569; }
+
+    /* ── 동별 현황 ── */
+    .dong-section { padding:12px 16px 80px; }
+    .sec-hdr {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom:8px;
+    }
+    .sec-title { font-size:13px; font-weight:700; color:#94a3b8; }
+    .sec-stat  { font-size:11px; color:#64748b; }
+
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    thead th {
+      background:#0f172a; color:#64748b; font-size:10px; font-weight:600;
+      padding:7px 8px; text-align:right; position:sticky; top:72px;
+      border-bottom:1px solid #334155;
+    }
+    thead th:first-child { text-align:left; }
+    tbody tr { border-bottom:1px solid #1e293b; }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr.unreported td { color:#475569; }
+    tbody td { padding:9px 8px; text-align:right; vertical-align:middle; }
+    tbody td:first-child { text-align:left; font-weight:600; color:#fff; }
+    .unreported td:first-child { color:#ef4444; }
+    .unreported td:first-child::before { content:'● '; font-size:8px; }
+    .td-m  { color:#60a5fa; font-weight:700; }
+    .td-p  { color:#f87171; font-weight:700; }
+    .td-diff-pos { color:#60a5fa; font-weight:700; }
+    .td-diff-neg { color:#f87171; font-weight:700; }
+    .td-diff-zero { color:#64748b; }
+
+    /* ── 하단 고정 바 ── */
+    .bottom-bar {
+      position:fixed; bottom:0; left:0; right:0;
+      background:#1e293b; border-top:1px solid #334155;
+      padding:10px 16px; display:flex; justify-content:space-between; align-items:center;
+    }
+    .auto-lbl { font-size:11px; color:#64748b; }
+    .auto-btns { display:flex; gap:6px; }
+    .auto-btn {
+      padding:5px 10px; border-radius:6px; font-size:11px; font-weight:600;
+      border:1px solid #334155; background:transparent; color:#64748b; cursor:pointer;
+    }
+    .auto-btn.on { background:#6d28d9; border-color:#6d28d9; color:#fff; }
+
+    /* ── 로딩/에러 ── */
+    .loading { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; gap:16px; }
+    .spinner { width:32px; height:32px; border:3px solid #334155; border-top-color:#6d28d9; border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .err { text-align:center; padding:40px 20px; color:#ef4444; }
+  </style>
+</head>
+<body>
+
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  <span style="font-size:13px; color:#64748b;">불러오는 중...</span>
+</div>
+
+<div id="app" style="display:none;">
+  <!-- 헤더 -->
+  <header>
+    <div class="hdr-title" id="hdr-title">개표 현황</div>
+    <div class="hdr-sub"   id="hdr-sub"></div>
+    <div class="hdr-dev">개발자 서정우</div>
+    <div class="refresh-row">
+      <div class="live-badge"><div class="dot"></div>실시간</div>
+      <span class="last-upd" id="last-upd"></span>
+      <button class="refresh-btn" onclick="loadData()">🔄 새로고침</button>
+    </div>
+  </header>
+
+  <!-- 득표율 바 -->
+  <div class="ratio-section">
+    <div class="ratio-nums">
+      <div class="ratio-party">
+        <div class="party-label" style="color:#60a5fa;" id="lbl-m">민주당</div>
+        <div class="party-votes" style="color:#60a5fa;" id="val-m">-</div>
+        <div class="party-pct"   style="color:#60a5fa;" id="pct-m">-</div>
+      </div>
+      <div class="ratio-mid">
+        <div class="vs-text">VS</div>
+        <div class="diff-text" id="diff-val">-</div>
+        <div style="font-size:9px; color:#475569; margin-top:2px;" id="diff-lbl">득표차</div>
+      </div>
+      <div class="ratio-party">
+        <div class="party-label" style="color:#f87171;" id="lbl-p">국민의힘</div>
+        <div class="party-votes" style="color:#f87171;" id="val-p">-</div>
+        <div class="party-pct"   style="color:#f87171;" id="pct-p">-</div>
+      </div>
+    </div>
+    <div class="ratio-bar-wrap">
+      <div class="bar-m" id="bar-m" style="width:50%;"></div>
+      <div class="bar-p" id="bar-p" style="width:50%;"></div>
+    </div>
+    <div class="rate-row">
+      <span class="rate-lbl">개표수</span>
+      <span class="rate-val" id="rate-total">-</span>
+      <span class="rate-cnt" id="rate-cnt"></span>
+      <span class="rate-lbl" style="margin-left:12px;">개표율</span>
+      <span class="rate-val" id="rate-pct">-</span>
+    </div>
+  </div>
+
+  <!-- 동별 현황 -->
+  <div class="dong-section">
+    <div class="sec-hdr">
+      <span class="sec-title" id="dong-title">동별 현황</span>
+      <span class="sec-stat" id="dong-stat"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left;">동명</th>
+          <th id="th-m" style="color:#60a5fa;">민주당</th>
+          <th id="th-p" style="color:#f87171;">국민의힘</th>
+          <th>득표차</th>
+        </tr>
+      </thead>
+      <tbody id="dong-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- 하단 자동갱신 -->
+  <div class="bottom-bar">
+    <span class="auto-lbl">자동갱신</span>
+    <div class="auto-btns">
+      <button class="auto-btn" onclick="setAuto(0)">꺼짐</button>
+      <button class="auto-btn on" onclick="setAuto(15)">15초</button>
+      <button class="auto-btn" onclick="setAuto(30)">30초</button>
+      <button class="auto-btn" onclick="setAuto(60)">60초</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/address.js"></script>
+<script>
+  let camp        = null
+  let allDongs    = []
+  let autoTimer   = null
+  let autoSec     = 15
+
+  async function init() {
+    const slug = getParam('slug')
+    if (!slug) return showErr('캠프 주소가 없습니다.')
+    try {
+      const { data, error } = await db.from('camps').select('*').eq('slug', slug).single()
+      if (error || !data) return showErr('캠프를 찾을 수 없습니다.')
+      camp     = data
+      allDongs = await loadDongs(camp.sigungu)
+
+      const isBonson = camp.election_type === '본선'
+      document.getElementById('hdr-title').textContent = `${camp.sigungu} 구청장 개표 현황`
+      document.getElementById('hdr-sub').textContent   = `${camp.sido} · ${camp.party_name}`
+      document.getElementById('lbl-m').textContent     = isBonson ? '민주당'  : '당원'
+      document.getElementById('lbl-p').textContent     = isBonson ? '국민의힘': '안심번호'
+      document.getElementById('th-m').textContent      = isBonson ? '민주당'  : '당원'
+      document.getElementById('th-p').textContent      = isBonson ? '국민의힘': '안심번호'
+      document.title = `${camp.sigungu} 개표 현황`
+
+      document.getElementById('loading').style.display = 'none'
+      document.getElementById('app').style.display     = 'block'
+
+      await loadData()
+      setAuto(15)
+    } catch(e) {
+      showErr('오류: ' + e.message)
+    }
+  }
+
+  async function loadData() {
+    if (!camp) return
+    const { data } = await db
+      .from('submissions')
+      .select('dong, vote_count, vote_type')
+      .eq('camp_id', camp.id)
+      .order('submitted_at', { ascending: false })
+
+    if (!data) return
+
+    const isBonson = camp.election_type === '본선'
+    const map = {}
+    data.forEach(row => {
+      if (!map[row.dong]) map[row.dong] = { total:0, m:0, p:0 }
+      map[row.dong].total += row.vote_count
+      if (isBonson) {
+        if (row.vote_type === '민주당')   map[row.dong].m += row.vote_count
+        else if (row.vote_type === '국민의힘') map[row.dong].p += row.vote_count
+      } else {
+        if (row.vote_type === '안심번호') map[row.dong].p += row.vote_count
+        else                              map[row.dong].m += row.vote_count
+      }
+    })
+
+    const totalM = Object.values(map).reduce((s,r) => s + r.m, 0)
+    const totalP = Object.values(map).reduce((s,r) => s + r.p, 0)
+    const total  = totalM + totalP
+    const rTotal = totalM + totalP
+
+    // 득표율 바
+    if (rTotal > 0) {
+      const pctM = (totalM / rTotal * 100).toFixed(1)
+      const pctP = (totalP / rTotal * 100).toFixed(1)
+      document.getElementById('val-m').textContent  = formatNumber(totalM)
+      document.getElementById('val-p').textContent  = formatNumber(totalP)
+      document.getElementById('pct-m').textContent  = pctM + '%'
+      document.getElementById('pct-p').textContent  = pctP + '%'
+      document.getElementById('bar-m').style.width  = pctM + '%'
+      document.getElementById('bar-p').style.width  = pctP + '%'
+      const diff = totalM - totalP
+      const diffEl = document.getElementById('diff-val')
+      diffEl.textContent  = (diff >= 0 ? '+' : '') + formatNumber(diff)
+      diffEl.style.color  = diff > 0 ? '#60a5fa' : diff < 0 ? '#f87171' : '#94a3b8'
+    } else {
+      document.getElementById('val-m').textContent = '0'
+      document.getElementById('val-p').textContent = '0'
+      document.getElementById('pct-m').textContent = '-'
+      document.getElementById('pct-p').textContent = '-'
+      document.getElementById('diff-val').textContent = '-'
+    }
+
+    document.getElementById('rate-total').textContent = formatNumber(total)
+    const rate = camp.target_votes > 0
+      ? (total / camp.target_votes * 100).toFixed(1) + '%' : '-'
+    document.getElementById('rate-pct').textContent = rate
+    if (camp.target_votes > 0)
+      document.getElementById('rate-cnt').textContent = `/ ${formatNumber(camp.target_votes)}`
+
+    // 동별 테이블
+    const reported   = allDongs.filter(d => map[d]).sort((a,b) => (map[b]?.total||0) - (map[a]?.total||0))
+    const unreported = allDongs.filter(d => !map[d])
+    document.getElementById('dong-stat').textContent =
+      `${reported.length} / ${allDongs.length}동 보고`
+
+    const tbody = document.getElementById('dong-tbody')
+    tbody.innerHTML = [...reported, ...unreported].map(dong => {
+      const r = map[dong]
+      if (!r) return `
+        <tr class="unreported">
+          <td>${dong}</td>
+          <td>-</td><td>-</td><td class="td-diff-zero">미보고</td>
+        </tr>`
+      const diff = r.m - r.p
+      const dcls = diff > 0 ? 'td-diff-pos' : diff < 0 ? 'td-diff-neg' : 'td-diff-zero'
+      const dsign = diff > 0 ? '+' : ''
+      return `
+        <tr>
+          <td>${dong}</td>
+          <td class="td-m">${formatNumber(r.m)}</td>
+          <td class="td-p">${formatNumber(r.p)}</td>
+          <td class="${dcls}">${dsign}${formatNumber(diff)}</td>
+        </tr>`
+    }).join('')
+
+    document.getElementById('last-upd').textContent =
+      new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit',second:'2-digit'})
+  }
+
+  function setAuto(sec) {
+    clearInterval(autoTimer)
+    autoSec = sec
+    document.querySelectorAll('.auto-btn').forEach(b => b.classList.remove('on'))
+    document.querySelectorAll('.auto-btn').forEach(b => {
+      if (b.textContent.includes(sec === 0 ? '꺼짐' : sec + '초')) b.classList.add('on')
+    })
+    if (sec > 0) autoTimer = setInterval(loadData, sec * 1000)
+  }
+
+  function showErr(msg) {
+    document.getElementById('loading').innerHTML =
+      `<div class="err">⚠️<br><br>${msg}</div>`
+  }
+
+  window.addEventListener('beforeunload', () => clearInterval(autoTimer))
+  document.addEventListener('DOMContentLoaded', init)
+</script>
+</body>
+</html>
