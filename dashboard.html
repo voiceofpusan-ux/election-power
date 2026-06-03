@@ -45,6 +45,10 @@
       0%,100% { opacity:1; text-shadow:0 2px 16px rgba(255,255,255,0.35), 0 0 40px rgba(147,197,253,0.3); }
       50%      { opacity:0.15; text-shadow:none; }
     }
+    @keyframes marqueeScroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
     .refresh-btn {
       padding: 7px 16px; border-radius: 8px;
       background: rgba(255,255,255,0.15); color: #fff;
@@ -323,14 +327,17 @@
     </div>
   </div>
 
-  <!-- 개발자 크레딧 -->
-  <div style="background:#1a1f35; text-align:center; padding:8px 0 10px;
-              border-bottom:1px solid #334155;">
+  <!-- 개발자 크레딧 마퀴 -->
+  <div style="background:#1a1f35; border-bottom:1px solid #334155;
+              padding:8px 0; overflow:hidden; white-space:nowrap;">
     <span style="font-family:'Noto Serif KR',Georgia,serif;
-                 font-size:15px; font-weight:700; color:rgba(255,255,255,0.55);
-                 letter-spacing:2px; animation:devBlink 2.8s ease-in-out infinite;
-                 display:inline-block;">
-      개발자 서정우 &nbsp;|&nbsp; 기능제안 의견 주세요
+                 font-size:15px; font-weight:700; color:rgba(255,255,255,0.6);
+                 letter-spacing:2px; display:inline-block;
+                 animation:marqueeScroll 18s linear infinite;">
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      개발자 서정우, 수정제안 주세요
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      개발자 서정우, 수정제안 주세요
     </span>
   </div>
 
