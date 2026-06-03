@@ -351,7 +351,7 @@
     <div class="sum-item">
       <div class="sum-val green" id="sum-rate">-</div>
       <div class="sum-lbl" style="display:flex; align-items:center; gap:5px;">
-        목표 달성률
+        개표율
         <button onclick="openTargetModal()"
           style="background:none; border:1px solid #475569; border-radius:4px;
                  color:#94a3b8; font-size:10px; padding:1px 5px; cursor:pointer; line-height:1.4;">
@@ -361,13 +361,8 @@
     </div>
     <div class="sum-divider"></div>
     <div class="sum-item">
-      <div class="sum-val" id="sum-reported">-</div>
-      <div class="sum-lbl">보고 완료</div>
-    </div>
-    <div class="sum-divider"></div>
-    <div class="sum-item">
-      <div class="sum-val red" id="sum-unreported">-</div>
-      <div class="sum-lbl">미보고</div>
+      <div class="sum-val" id="sum-diff" style="color:#94a3b8;">-</div>
+      <div class="sum-lbl" id="lbl-diff">득표차</div>
     </div>
     <div class="sum-time" id="last-update"></div>
   </div>
@@ -772,8 +767,13 @@
     document.getElementById('sum-dang').textContent       = formatNumber(dang)
     document.getElementById('sum-anshim').textContent     = formatNumber(anshim)
     document.getElementById('sum-rate').textContent       = rate
-    document.getElementById('sum-reported').textContent   = `${reported} / ${allDongs.length} 동`
-    document.getElementById('sum-unreported').textContent = unreport + ' 동'
+    const diff      = dang - anshim
+    const diffColor = diff > 0 ? '#60a5fa' : diff < 0 ? '#f87171' : '#94a3b8'
+    const diffSign  = diff > 0 ? '+' : ''
+    const isBonsonS = camp.election_type === '본선'
+    document.getElementById('sum-diff').textContent      = diff === 0 ? '-' : diffSign + formatNumber(diff)
+    document.getElementById('sum-diff').style.color      = diffColor
+    document.getElementById('lbl-diff').textContent      = isBonsonS ? '득표차 (민주-국힘)' : '득표차 (당원-안심)'
 
     // 득표율 바 업데이트
     const rTotal = dang + anshim
