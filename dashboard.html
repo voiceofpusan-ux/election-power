@@ -308,6 +308,29 @@
     </div>
   </header>
 
+  <!-- 득표율 바 -->
+  <div id="ratio-wrap" style="display:none; background:#1a1f35; border-bottom:1px solid #334155; padding:14px 28px;">
+    <div style="max-width:700px; margin:0 auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="display:flex; align-items:baseline; gap:8px;">
+          <span style="font-size:26px; font-weight:800; color:#60a5fa;" id="ratio-dang-pct">-</span>
+          <span style="font-size:13px; color:#60a5fa; font-weight:600;" id="ratio-dang-label">민주당</span>
+          <span style="font-size:12px; color:#475569;" id="ratio-dang-votes"></span>
+        </div>
+        <div style="font-size:13px; color:#64748b; font-weight:600; letter-spacing:1px;">득표율</div>
+        <div style="display:flex; align-items:baseline; gap:8px; flex-direction:row-reverse;">
+          <span style="font-size:26px; font-weight:800; color:#f87171;" id="ratio-people-pct">-</span>
+          <span style="font-size:13px; color:#f87171; font-weight:600;" id="ratio-people-label">국민의힘</span>
+          <span style="font-size:12px; color:#475569;" id="ratio-people-votes"></span>
+        </div>
+      </div>
+      <div style="background:#334155; border-radius:6px; height:14px; overflow:hidden; display:flex;">
+        <div id="ratio-fill-dang"   style="height:100%; background:#3b82f6; transition:width .6s ease; width:50%;"></div>
+        <div id="ratio-fill-people" style="height:100%; background:#ef4444; transition:width .6s ease; width:50%;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- 요약 바 -->
   <div class="summary-bar">
     <div class="sum-item">
@@ -751,6 +774,25 @@
     document.getElementById('sum-rate').textContent       = rate
     document.getElementById('sum-reported').textContent   = `${reported} / ${allDongs.length} 동`
     document.getElementById('sum-unreported').textContent = unreport + ' 동'
+
+    // 득표율 바 업데이트
+    const rTotal = dang + anshim
+    if (rTotal > 0) {
+      const isBonson    = camp.election_type === '본선'
+      const dangLabel   = isBonson ? '민주당'  : '당원'
+      const peopleLabel = isBonson ? '국민의힘' : '안심번호'
+      const dangPct     = (dang  / rTotal * 100).toFixed(1)
+      const peoplePct   = (anshim / rTotal * 100).toFixed(1)
+      document.getElementById('ratio-dang-pct').textContent     = dangPct + '%'
+      document.getElementById('ratio-people-pct').textContent   = peoplePct + '%'
+      document.getElementById('ratio-dang-label').textContent   = dangLabel
+      document.getElementById('ratio-people-label').textContent = peopleLabel
+      document.getElementById('ratio-dang-votes').textContent   = formatNumber(dang) + '표'
+      document.getElementById('ratio-people-votes').textContent = formatNumber(anshim) + '표'
+      document.getElementById('ratio-fill-dang').style.width    = dangPct + '%'
+      document.getElementById('ratio-fill-people').style.width  = peoplePct + '%'
+      document.getElementById('ratio-wrap').style.display       = 'block'
+    }
   }
 
   // ── 단위 카드 헤더 소계 ──────────────────────────────
