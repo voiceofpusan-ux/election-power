@@ -277,14 +277,6 @@
 
   <!-- 헤더 -->
   <header class="dash-header">
-    <div style="position:absolute; left:50%; transform:translateX(-50%);
-                font-family:'Noto Serif KR','Playfair Display',Georgia,serif;
-                font-size:44px; font-weight:700; color:#fff; letter-spacing:4px;
-                text-shadow:0 2px 16px rgba(255,255,255,0.35), 0 0 40px rgba(147,197,253,0.3);
-                pointer-events:none; white-space:nowrap;
-                animation:devBlink 2.8s ease-in-out infinite;">
-      개발자 &nbsp;서정우
-    </div>
     <div class="header-left">
       <div>
         <div class="header-title" id="header-district"></div>
@@ -329,6 +321,17 @@
         <div id="ratio-fill-people" style="height:100%; background:#ef4444; transition:width .6s ease; width:50%;"></div>
       </div>
     </div>
+  </div>
+
+  <!-- 개발자 크레딧 -->
+  <div style="background:#1a1f35; text-align:center; padding:8px 0 10px;
+              border-bottom:1px solid #334155;">
+    <span style="font-family:'Noto Serif KR',Georgia,serif;
+                 font-size:15px; font-weight:700; color:rgba(255,255,255,0.55);
+                 letter-spacing:2px; animation:devBlink 2.8s ease-in-out infinite;
+                 display:inline-block;">
+      개발자 서정우 &nbsp;|&nbsp; 기능제안 의견 주세요
+    </span>
   </div>
 
   <!-- 요약 바 -->
@@ -768,7 +771,7 @@
     document.getElementById('sum-anshim').textContent     = formatNumber(anshim)
     document.getElementById('sum-rate').textContent       = rate
     const diff      = dang - anshim
-    const diffColor = diff > 0 ? '#60a5fa' : diff < 0 ? '#f87171' : '#94a3b8'
+    const diffColor = diff > 0 ? '#10b981' : diff < 0 ? '#f97316' : '#94a3b8'
     const diffSign  = diff > 0 ? '+' : ''
     const isBonsonS = camp.election_type === '본선'
     document.getElementById('sum-diff').textContent      = diff === 0 ? '-' : diffSign + formatNumber(diff)
@@ -820,7 +823,7 @@
     if (isBonson) {
       // 본선: 민주당(파랑) / 국민의힘(빨강) / 득표차(동적 색)
       const diffVotes  = dangVotes.map((d, i) => d - anshimVotes[i])
-      const diffColors = diffVotes.map(v => v > 0 ? '#3b82f6' : v < 0 ? '#ef4444' : '#94a3b8')
+      const diffColors = diffVotes.map(v => v > 0 ? '#10b981' : v < 0 ? '#f97316' : '#94a3b8')
       datasets = [
         { label: '민주당',  data: dangVotes,            backgroundColor: '#3b82f6', borderRadius: 4 },
         { label: '국민의힘', data: anshimVotes,           backgroundColor: '#ef4444', borderRadius: 4 },
@@ -887,7 +890,7 @@
       const anshimColor= isBonsonT ? '#ef4444' : '#34d399'
       const thirdVal   = r
         ? (isBonsonT
-            ? `<span style="color:${r.dang_count >= r.anshim_count ? '#3b82f6' : '#ef4444'}; font-weight:600;">
+            ? `<span style="color:${r.dang_count >= r.anshim_count ? '#10b981' : '#f97316'}; font-weight:600;">
                ${r.dang_count >= r.anshim_count ? '+' : ''}${formatNumber(r.dang_count - r.anshim_count)}</span>`
             : formatNumber(r.vote_count) + '표')
         : '미보고'
